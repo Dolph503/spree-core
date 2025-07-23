@@ -32,7 +32,7 @@ module Spree
     has_many :refunds, inverse_of: :payment
 
     validates :payment_method, presence: true
-    validates :source, presence: true, if: -> { payment_method&.source_required? }
+    validates :source, presence: true, if: :source_required?
     validate :payment_method_available_for_order, on: :create
 
     before_validation :validate_source
@@ -50,6 +50,7 @@ module Spree
     after_destroy :update_order
 
     attr_accessor :source_attributes, :request_env, :capture_on_dispatch
+    attribute :skip_source_requirement, :boolean, default: false
 
     after_initialize :build_source
 
@@ -247,6 +248,12 @@ module Spree
       source_class.respond_to?(:display_name) ? source_class.display_name : source_class.name.demodulize.split(/(?=[A-Z])/).join(' ')
     end
 
+    def source_required?
+      return false if skip_source_requirement
+
+      payment_method&.source_required?
+    end
+
     private
 
     def set_amount
@@ -302,7 +309,8 @@ module Spree
       # Payment profile cannot be created without source
       return unless source
       # Imported payments shouldn't create a payment profile.
-      return if source.imported
+      # Imported is only available on Spree::CreditCard, non-credit card payments should not have this attribute.
+      return if source.respond_to?(:imported) && source.imported
 
       payment_method.create_profile(self)
     rescue ActiveMerchant::ConnectionError => e

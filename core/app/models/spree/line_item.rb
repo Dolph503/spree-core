@@ -48,7 +48,7 @@ module Spree
 
     after_create :update_tax_charge
 
-    delegate :name, :description, :sku, :should_track_inventory?, :product, :options_text, :slug, :product_id, to: :variant
+    delegate :name, :description, :sku, :should_track_inventory?, :product, :options_text, :slug, :product_id, :dimensions_unit, :weight_unit, to: :variant
     delegate :brand, :category, to: :product
     delegate :tax_zone, to: :order
     delegate :digital?, to: :variant
@@ -85,13 +85,17 @@ module Spree
     extend DisplayMoney
     money_methods :amount, :subtotal, :discounted_amount, :final_amount, :total, :price,
                   :adjustment_total, :additional_tax_total, :promo_total, :included_tax_total,
-                  :pre_tax_amount, :shipping_cost, :tax_total
+                  :pre_tax_amount, :shipping_cost, :tax_total, :compare_at_amount
 
     alias single_money display_price
     alias single_display_amount display_price
 
     def amount
       price * quantity
+    end
+
+    def compare_at_amount
+      (variant.compare_at_amount_in(currency) || 0) * quantity
     end
 
     alias subtotal amount
@@ -112,6 +116,13 @@ module Spree
 
     def final_amount
       amount + adjustment_total
+    end
+
+    # Returns the weight of the line item
+    #
+    # @return [BigDecimal]
+    def item_weight
+      variant.weight * quantity
     end
 
     alias total final_amount

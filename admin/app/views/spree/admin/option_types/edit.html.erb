@@ -1,6 +1,10 @@
 <% content_for :page_title do %>
   <%= page_header_back_button spree.admin_option_types_url %>
-  <%= @option_type.name %>
+  <%= @option_type.presentation %>
+<% end %>
+
+<% content_for :page_actions_dropdown do %>
+  <%= link_to_edit_translations(@option_type) %>
 <% end %>
 
 <%= render partial: 'spree/admin/shared/error_messages', locals: { target: @option_type } %>

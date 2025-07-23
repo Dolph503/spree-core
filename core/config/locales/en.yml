@@ -50,10 +50,12 @@ en:
         number: Number
         verification_value: Verification Value
         year: Year
+      spree/gift_card:
+        amount_used: Amount used
+        expires_at: Expires at
       spree/inventory_unit:
         state: State
       spree/invitation:
-        expires_at: Expires at
         inviter: Inviter
       spree/line_item:
         price: Price
@@ -151,6 +153,8 @@ en:
         updated: Updated
         user: User
       spree/store:
+        address: Address
+        contact_phone: Contact Phone
         mail_from_address: Mail From Address
         meta_description: Meta Description
         meta_keywords: Meta Keywords
@@ -227,6 +231,10 @@ en:
             base:
               card_expired: Card has expired
               expiry_invalid: Card expiration is invalid
+        spree/gift_card:
+          attributes:
+            base:
+              cannot_destroy_used_gift_card: Can't delete a used gift card
         spree/image:
           attributes:
             attachment:
@@ -359,6 +367,18 @@ en:
       spree/order:
         one: Order
         other: Orders
+      spree/page:
+        one: Page
+        other: Pages
+      spree/page_block:
+        one: Page Block
+        other: Page Blocks
+      spree/page_link:
+        one: Page Link
+        other: Page Links
+      spree/page_section:
+        one: Page Section
+        other: Page Sections
       spree/payment:
         one: Payment
         other: Payments
@@ -555,6 +575,7 @@ en:
       receive: Mark as received
       refund: Refund
       reject: Reject
+      remove: Remove
       resend: Resend
       resolve: Mark as resolved
       save: Save
@@ -568,6 +589,7 @@ en:
     add_address: Add address
     add_country: Add Country
     add_coupon_code: Add Coupon Code
+    add_gift_card: Add Gift Card
     add_new_address: Add new address
     add_new_credit_card: Add a new card
     add_new_header: Add New Header
@@ -618,6 +640,7 @@ en:
       successfully_updated: Updated successfully
       unsuccessfully_saved: There was an error while trying to save your address.
       unsuccessfully_updated: There was an update while trying to update your address.
+    address_settings: Address settings
     addresses: Addresses
     adjustable: Adjustable
     adjustment: Adjustment
@@ -654,6 +677,7 @@ en:
     api_keys: API keys
     apply: Apply
     apply_only_on_full_priced_items: Apply only on full priced items
+    apply_store_credit: Apply Store Credit
     approve: approve
     approved_at: Approved at
     approver: Approver
@@ -662,7 +686,6 @@ en:
     associated_adjustment_closed: The associated adjustment is closed, and will not be recalculated. Do you want to open it?
     at_symbol: "@"
     attachments: Attachments
-    audit_log: Audit Log
     author: Author
     authorization_failure: Authorization Failure
     authorized: Authorized
@@ -726,6 +749,7 @@ en:
     capture: Capture
     capture_events: Capture events
     card_code: Card Verification Code (CVC)
+    card_expiration_placeholder: MM/YYYY
     card_number: Card Number
     card_type: Brand
     card_type_is: Card type is
@@ -779,7 +803,6 @@ en:
     compare_at_amount: Compare at amount
     compare_at_price: Compare at price
     complete: complete
-    conditions: Conditions
     configuration: Configuration
     configurations: Configurations
     confirm: Confirm
@@ -831,10 +854,8 @@ en:
     coupon_codes: Coupon codes
     create: Create
     create_a_new_account: Create a new account
-    create_customer: Create customer
     create_new: Create new
     create_new_order: Create new order
-    create_new_team: Create new team
     create_reimbursement: Create reimbursement
     created_at: Created at
     created_by: Created by
@@ -848,10 +869,10 @@ en:
     credits: Credits
     currencies: Currencies
     currency: Currency
+    currency_and_country_help: This determines which vendors you can connect with and what customers see on your store.
     currency_settings: Currency Settings
     current: Current
     current_password: Current password
-    current_promotion_usage: 'current usage: %{count}'
     custom_code: Custom code
     custom_font_code: Custom font code
     customer: Customer
@@ -877,6 +898,7 @@ en:
     default_country: Default Country
     default_country_cannot_be_deleted: Default country cannot be deleted
     default_currency: Default currency
+    default_locale: Default locale
     default_post_categories:
       articles: Articles
       news: News
@@ -902,9 +924,12 @@ en:
     destroy: Destroy
     details: Details
     developers: Developers
+    didn_t_receive_confirmation_instructions: Didn't receive confirmation instructions?
+    didn_t_receive_unlock_instructions: Didn't receive unlock instructions?
     digital:
       digital_delivery: Digital Delivery
     digital_assets: Digital assets
+    digital_assets_help: Digital assets are files that can be downloaded by customers after purchase.
     digital_link_unauthorized: You are not authorized to access this asset
     dimension_units:
       centimeter: Centimeter (cm)
@@ -931,7 +956,7 @@ en:
     download: Download
     draft: Draft
     draft_mode: Draft Mode
-    draft_orders: Draft orders
+    draft_orders: Draft Orders
     duplicate: Duplicate
     duplicating: Duplicating
     edit: Edit
@@ -1013,6 +1038,7 @@ en:
     expiration: Expiration
     expiration_date: Expiration Date
     expired: Expired
+    expires_at: Expires at
     explore_taxon: Explore taxon
     export: Export
     export_mailer:
@@ -1067,8 +1093,14 @@ en:
     general_settings: General Settings
     generate_code: Generate coupon code
     get_back_to_the: Get back to the
-    gift_card: Gift card
-    gift_cards: Gift cards
+    gift_card: Gift Card
+    gift_card_already_redeemed: The Gift Card has already been redeemed.
+    gift_card_applied: The Gift Card was successfully applied to your order!
+    gift_card_batch: Gift Card Batch
+    gift_card_expired: The Gift Card has expired.
+    gift_card_removed: The Gift Card was successfully removed from your order
+    gift_card_using_store_credit_error: You can't apply the Gift Card after you applied the store credit.
+    gift_cards: Gift Cards
     go_to_category: Go to category
     go_to_facebook: Go to facebook
     go_to_homepage: Go to Home Page
@@ -1159,7 +1191,6 @@ en:
     iso: ISO Alpha-2
     iso3: ISO Alpha-3
     iso_name: ISO Name
-    issue_gift_card: Issue Gift Card
     issued_on: Issued On
     item: Item
     item_description: Item Description
@@ -1190,7 +1221,6 @@ en:
     list: List
     live: Live
     loading: Loading
-    loading_tree: Loading tree. Please wait…
     locale_changed: Locale Changed
     location: Location
     lock: Lock
@@ -1205,7 +1235,6 @@ en:
     login_failed: Login authentication failed.
     login_name: Login
     logo: Logo
-    logo_alt: Brand logo
     logout: Logout
     logs: Logs
     look_for_similar_items: Look for similar items
@@ -1234,6 +1263,9 @@ en:
     metadata: Metadata
     min: Min
     minimal_amount: Minimal Amount
+    minimum_password_length:
+      one: "(%{count} character minimum)"
+      other: "(%{count} characters minimum)"
     missing_return_authorization: Missing Return Authorization for %{item_name}.
     month: Month
     more: More
@@ -1263,6 +1295,7 @@ en:
     new_customer_return: New Customer Return
     new_digital_asset: New digital asset
     new_domain: New domain
+    new_gift_card: New Gift Card
     new_image: New Image
     new_line_item: Add line item
     new_market: New market
@@ -1455,6 +1488,9 @@ en:
       newsletter_form:
         button_text_default: Submit
         placeholder_default: Enter your email
+      products:
+        buy_buttons:
+          display_name: Add To Cart
     page_not_found: Sorry! Page you are looking can’t be found.
     page_sections:
       announcement_bar:
@@ -1485,7 +1521,6 @@ en:
       video:
         heading_1_default: Why I recommend it?
         heading_2_default: There's nothing like a soft hint of blush to add dimension and color to your look.
-    page_settings: Page settings
     pages: Pages
     pages_defaults:
       homepage:
@@ -1504,7 +1539,7 @@ en:
     password_protected: Password protected
     paste: Paste
     path: Path
-    pay: pay
+    pay: Pay
     payment: Payment
     payment_amount: Payment amount
     payment_attempts: failed attempts
@@ -1521,11 +1556,11 @@ en:
     payment_source: Payment source
     payment_state: Payment State
     payment_states:
-      balance_due: Balance due
+      balance_due: Balance Due
       checkout: Checkout
       complete: Complete
       completed: Completed
-      credit_owed: Credit owed
+      credit_owed: Credit Owed
       failed: Failed
       paid: Paid
       partially_refunded: Partially Refunded
@@ -1550,8 +1585,6 @@ en:
     please_check_back_soon: Please check back soon.
     please_define_payment_methods: Please define some payment methods first.
     please_enter_reasonable_quantity: Please enter a reasonable quantity.
-    please_select: Please select
-    please_select_all_options: Please select all options
     policies: Policies
     populate_get_error: Something went wrong. Please try adding the item again.
     post_categories: Post categories
@@ -1724,6 +1757,7 @@ en:
     remember_me: Remember me
     remove: Remove
     remove_condition: Remove condition
+    remove_gift_card_on_completed_order_error: You can't remove the gift card after the order was placed
     remove_image: Remove Image
     rename: Rename
     report: Report
@@ -1884,6 +1918,7 @@ en:
         including_tax: "%{price} (incl. %{tax_amount} %{tax_rate_name})"
     shipping_total: Shipping total
     shipping_zone: Shipping Zone
+    shipping_zone_help: Zone will limit to which Countries or States products are shipped.
     shop_all: Shop All
     shop_by_taxonomy: Shop by %{taxonomy}
     shopping_cart: Shopping Cart
@@ -1902,6 +1937,7 @@ en:
     show_store_selector:
       long: Display the Store selector in the main nav bar of Storefront and allow users to change Store and Currency
       short: Show Store selector
+    sign_in_with_provider: Sign in with %{provider}
     sign_out: Sign out
     sign_up: Sign Up
     site_name: Site name
@@ -1922,6 +1958,7 @@ en:
     ssl:
       change_protocol: Please switch to using HTTP (rather than HTTPS) and retry this request.
     standards_and_formats: Standards and formats
+    standards_and_formats_help: Set the timezone, default unit system and weight unit for your store.
     start: Start
     start_typing_to_search_for_products: Start typing to search for products
     start_typing_to_search_for_variants: Start typing to search for variants
@@ -1989,11 +2026,11 @@ en:
       additional_payment_needed: Select another payment method for the remaining <strong>%{amount}</strong>.
       allocated: Added
       applicable_amount: "<strong>%{amount}</strong> in store credit will be applied to this order."
-      apply: Apply
       authorized: Authorized
       available_amount: You have <strong>%{amount}</strong> in Store Credit available!
       captured: Used
       credit: Credit
+      eligible: Eligible
       errors:
         cannot_change_used_store_credit: You cannot change a store credit that has already been used
         unable_to_create: Unable to create store credit
@@ -2004,6 +2041,7 @@ en:
       remaining_amount: You have <strong>%{amount}</strong> remaining in your account's Store Credit.
       remove: Remove
     store_credit_categories: Store Credit Categories
+    store_credit_events: Store Credit Events
     store_credit_name: Store Credit
     store_credit_payment_method:
       currency_mismatch: Store credit currency does not match order currency
@@ -2034,6 +2072,7 @@ en:
       seo_robots: Please check <a href='https://developers.google.com/search/reference/robots_meta_tag' target='_blank'>this page for more help</a>
       social_help: If you want to link to your social accounts in the footer part of your website please fill below fields
     store_name: Store name
+    store_name_help: This is the name of your store. It will be displayed in the header and in the footer.
     store_not_set_as_default: Couldn't set store %{store} as a default store
     store_set_as_default: Store %{store} is now a default store
     store_set_default_button: Set as default
@@ -2122,6 +2161,7 @@ en:
     timezone: Timezone
     title: Title
     title_link: Title link
+    to: To
     to_add_variants_you_must_first_define: To add variants, you must first define
     toggle_menu: Toggle menu
     top_suggestions: Top suggestions
@@ -2146,6 +2186,7 @@ en:
     translations_for: "%{resource_name} translations"
     tree: Tree
     true_label: 'TRUE'
+    try_removing_filters: Try removing some filters to see more products
     twitter: Twitter
     type: Type
     type_to_search: Type to search
@@ -2154,6 +2195,7 @@ en:
     under_price: Under %{price}
     unit: Unit
     unit_system: Unit system
+    unit_system_help: This will be used as the default unit system for your store. You can override this on a per-product basis.
     unit_systems:
       imperial_system: Imperial system
       metric: metric
@@ -2215,6 +2257,7 @@ en:
     webhooks: Webhooks
     weight: Weight
     weight_unit: Weight unit
+    weight_unit_help: This will be used as the default weight unit for your store. You can override this on a per-product basis.
     weight_units:
       gram: Gram (g)
       kilogram: Kilogram (kg)

@@ -2,6 +2,11 @@ require 'spec_helper'
 
 describe Spree::CheckoutController, type: :controller do
   let(:store) { @default_store }
+  let(:address_params) do
+    address = build(:address, country: country, state: state)
+    address.attributes.except('created_at', 'updated_at')
+  end
+  let(:accept_marketing) { true }
   let(:country) { store.default_country || create(:country_us) }
   let!(:state) { create(:state, country: country, name: 'New York', abbr: 'NY') }
   let(:user) { nil }
@@ -9,17 +14,15 @@ describe Spree::CheckoutController, type: :controller do
 
   render_views
 
-  let(:address_params) do
-    address = build(:address, country: country, state: state)
-    address.attributes.except('created_at', 'updated_at')
-  end
-  let(:accept_marketing) { true }
 
   before do
-    allow(controller).to receive(:current_store).and_return(store)
-    allow(controller).to receive_messages try_spree_current_user: user
-    allow(controller).to receive_messages spree_current_user: user
-    allow(controller).to receive(:spree_login_path).and_return('/login')
+    allow(controller).to receive_messages(
+      current_store: store,
+      try_spree_current_user: user,
+      spree_current_user: user,
+      spree_signup_path: '/signup',
+      spree_login_path: '/login'
+    )
   end
 
   describe '#edit' do
@@ -65,6 +68,36 @@ describe Spree::CheckoutController, type: :controller do
       expect(controller).to receive(:track_event).with('checkout_started', { order: order })
       expect(controller).to receive(:track_event).with('checkout_step_viewed', { order: order, step: 'address' })
       get :edit, params: { token: order.token, state: 'address' }
+
+      expect(assigns(:order).accept_marketing).to be(true)
+      expect(assigns(:order).signup_for_an_account).to be(true)
+    end
+
+    describe 'special instructions field visibility' do
+      before do
+        order.update_column(:state, 'address')
+      end
+
+      context 'when special instructions preference is enabled' do
+        before { store.update!(preferred_special_instructions_enabled: true) }
+
+        after  { store.update!(preferred_special_instructions_enabled: false) }
+
+        it 'renders the special instructions field' do
+          get :edit, params: { token: order.token, state: 'address' }
+          expect(response.body).to include('special_instructions')
+          expect(response.body).to include(I18n.t('activerecord.attributes.spree/order.special_instructions'))
+        end
+      end
+
+      context 'when special instructions preference is disabled' do
+        before { store.update!(preferred_special_instructions_enabled: false) }
+
+        it 'does not render the special instructions field' do
+          get :edit, params: { token: order.token, state: 'address' }
+          expect(response.body).not_to include('special_instructions')
+        end
+      end
     end
 
     context 'when user is not signed in' do
@@ -86,9 +119,9 @@ describe Spree::CheckoutController, type: :controller do
       context 'when guest checkout is not allowed' do
         let(:allow_guest_checkout) { false }
 
-        it 'redirects to the login page' do
+        it 'redirects to the sign up page' do
           get :edit, params: { token: order.token }
-          expect(response).to redirect_to('/login')
+          expect(response).to redirect_to('/signup')
         end
       end
     end
@@ -215,16 +248,30 @@ describe Spree::CheckoutController, type: :controller do
 
       context 'on quick checkout' do
         let(:address) { create(:address, quick_checkout: true, country: country, state: state) }
+
         include_examples 'restarting checkout'
       end
 
       context 'with a missing shipping address' do
         let(:address) { nil }
+
         include_examples 'restarting checkout'
+
+        context 'when the order does not require a shipping address' do
+          let(:digital_shipping_method) { create(:digital_shipping_method) }
+          let(:digital_product) { create(:product, shipping_category: digital_shipping_method.shipping_categories.first) }
+          let(:order) { create(:order_with_line_items, variants: [digital_product.default_variant], state: 'payment', ship_address: nil, store: store, user: user, email: 'example@email.com') }
+
+          it 'does not redirect to the address step' do
+            get :edit, params: { token: order.token }
+            expect(response).to be_ok
+            expect(response).not_to redirect_to(spree.checkout_state_path(order.token, 'address'))
+          end
+        end
       end
     end
 
-    xcontext 'removes expired gift card' do
+    context 'removes expired gift card' do
       let!(:gift_card) { create :gift_card, code: '123', amount: 10, state: 'active' }
 
       before do
@@ -511,19 +558,80 @@ describe Spree::CheckoutController, type: :controller do
             end
           end
         end
+
+        describe 'address company field' do
+          let(:company_name) { 'Test Company Inc.' }
+          let(:ship_address_params) { build(:address, company: company_name, country: country, state: state).attributes.except(:user_id, :created_at, :updated_at) }
+
+          before { store.update!(preferred_company_field_enabled: true) }
+
+          after  { store.update!(preferred_company_field_enabled: false) }
+
+          it 'saves company field when provided' do
+            update
+            expect(response).to have_http_status(:redirect)
+            expect(order.ship_address.company).to eq('Test Company Inc.')
+            expect(order.ship_address.user).to eq(user)
+          end
+
+          context 'when company field is empty' do
+            let(:company_name) { '' }
+
+            it 'saves address without company field' do
+              update
+
+              expect(response).to have_http_status(:redirect)
+              expect(order.ship_address.company).to be_blank
+              expect(order.ship_address.user).to eq(user)
+            end
+          end
+        end
+
+        describe 'special instructions' do
+          let(:ship_address) { create(:address, user: user, country: country, state: state) }
+          let(:special_instructions) { "Please leave at the front door.\nKnock on the door." }
+          let(:ship_address_params) { order.ship_address.attributes.except(:user_id, :created_at, :updated_at) }
+          let(:update_params) do
+            {
+              token: order.token,
+              state: 'address',
+              order: {
+                ship_address_attributes: ship_address_params,
+                special_instructions: special_instructions
+              }
+            }
+          end
+
+          before { store.update!(preferred_special_instructions_enabled: true) }
+
+          after  { store.update!(preferred_special_instructions_enabled: false) }
+
+          it 'saves special instructions when provided' do
+            update
+            expect(response).to have_http_status(:redirect)
+            expect(order.special_instructions).to eq("Please leave at the front door.\nKnock on the door.")
+          end
+
+          context 'when special instructions is empty' do
+            let(:special_instructions) { '' }
+
+            it 'saves order without special instructions' do
+              update
+
+              expect(response).to have_http_status(:redirect)
+              expect(order.special_instructions).to be_blank
+            end
+          end
+        end
       end
 
       context 'with the order in the delivery state' do
-        let(:ship_address) { create(:address, user: user, country: country, state: state) }
-        let(:order) { create(:order_with_line_items, state: 'delivery', ship_address: ship_address, user: user, store: store, email: 'test@example.com') }
-
-        before do
-          order.create_proposed_shipments
-          order.ensure_available_shipping_rates
-          order.set_shipments_cost
+        subject :update do
+          patch :update, params: update_params
           order.reload
         end
 
+        let(:ship_address) { create(:address, user: user, country: country, state: state) }
         let(:update_params) do
           {
             token: order.token,
@@ -533,11 +641,16 @@ describe Spree::CheckoutController, type: :controller do
             }
           }
         end
+        let(:order) { create(:order_with_line_items, state: 'delivery', ship_address: ship_address, user: user, store: store, email: 'test@example.com') }
 
-        subject :update do
-          patch :update, params: update_params
+        before do
+          order.create_proposed_shipments
+          order.send(:ensure_available_shipping_rates)
+          order.set_shipments_cost
           order.reload
         end
+
+
 
         it 'sets shipping rate and moves to payment state' do
           expect(controller).to receive(:track_event).with('checkout_step_completed', { order: order, step: 'delivery' })
@@ -547,6 +660,11 @@ describe Spree::CheckoutController, type: :controller do
       end
 
       context 'with the order in the payment state' do
+        subject :update do
+          patch :update, params: update_params
+          order.reload
+        end
+
         let(:order) { create(:order_with_line_items, state: 'payment', user: user,store: store, email: 'test@example.com') }
         let(:payment_method) { create(:credit_card_payment_method, stores: [store]) }
 
@@ -586,10 +704,6 @@ describe Spree::CheckoutController, type: :controller do
           }
         end
 
-        subject :update do
-          patch :update, params: update_params
-          order.reload
-        end
 
         it 'saves payment method' do
           expect { update }.to change { order.payments.count }.by(1)
@@ -645,7 +759,7 @@ describe Spree::CheckoutController, type: :controller do
           it 'moves to complete state' do
             expect(controller).to receive(:track_event).with('payment_info_entered', { order: order })
             expect(controller).to receive(:track_event).with('checkout_step_completed', { order: order, step: 'payment' })
-            expect(controller).to receive(:track_event).with('checkout_completed', { order: order })
+            expect(controller).to receive(:track_event).with('order_completed', { order: order })
             expect { update }.to change { order.state }.from('payment').to('complete')
             expect(response).to redirect_to spree.checkout_complete_path(order.token)
           end
@@ -823,9 +937,10 @@ describe Spree::CheckoutController, type: :controller do
     end
 
     context 'Address Book' do
-      let!(:user) { create(:user) }
+      let!(:user) { create(:user_with_addresses) }
       let!(:variant) { create(:product, sku: 'Demo-SKU').master }
-      let!(:address) { create(:address, user: user, country: country, state: state) }
+      let!(:address) { user.ship_address }
+      let!(:other_address) { create(:address, user: user, country: country, state: state) }
       let!(:order) { create(:order, store: store, bill_address_id: nil, ship_address_id: nil, user: user, state: 'address') }
       let(:address_params) { build(:address, country: country, state: state).attributes }
 
@@ -834,15 +949,34 @@ describe Spree::CheckoutController, type: :controller do
         allow(order).to receive(:available_shipping_methods).and_return [stub_model(Spree::ShippingMethod)]
         allow(order).to receive(:available_payment_methods).and_return [stub_model(Spree::PaymentMethod)]
         allow(order).to receive(:ensure_available_shipping_rates).and_return true
+        allow(controller).to receive(:try_spree_current_user).and_return(user)
       end
 
       describe 'on address step' do
-        it 'set ship_address_id' do
-          put_address_to_order(ship_address_id: address.id)
-          expect(order.reload.ship_address).to eq(address)
+        it 'automatically selects existing address if user has one' do
+          get :edit, params: { state: 'address', token: order.token }
+
+          expect(controller.current_order.ship_address).to eq(address)
         end
 
-        it 'set address attributes' do
+        context 'when shipping address is not required' do
+          before do
+            allow_any_instance_of(Spree::Order).to receive(:requires_ship_address?).and_return(false)
+          end
+
+          it 'does not select existing address' do
+            get :edit, params: { state: 'address', token: order.token }
+
+            expect(controller.current_order.ship_address).to be_nil
+          end
+        end
+
+        it 'can select existing address' do
+          put_address_to_order(ship_address_id: other_address.id)
+          expect(order.reload.ship_address).to eq(other_address)
+        end
+
+        it 'can create new address' do
           expect { put_address_to_order(ship_address_attributes: address_params) }.to change(user.addresses, :count).by(1)
           expect(order.ship_address).not_to be_nil
           expect(order.ship_address.user).to eq(user)
@@ -907,6 +1041,37 @@ describe Spree::CheckoutController, type: :controller do
 
           expect(user.reload.bill_address).to eq(order.billing_address)
         end
+
+        describe 'billing address company field' do
+          let(:bill_address_with_company) { bill_address_attributes.merge(company: company_name) }
+
+          before { store.update!(preferred_company_field_enabled: true) }
+
+          after  { store.update!(preferred_company_field_enabled: false) }
+
+          context 'when company field is provided' do
+            let(:company_name) { 'Billing Company Corp.' }
+
+            it 'saves company field in billing address' do
+              put :update, params: { token: order.token, state: 'payment', order: { bill_address_attributes: bill_address_with_company } }
+
+              expect(response).to have_http_status(:redirect)
+              expect(order.reload.bill_address.company).to eq('Billing Company Corp.')
+              expect(order.bill_address.user).to eq(user)
+            end
+          end
+
+          context 'when company field is empty' do
+            let(:company_name) { '' }
+
+            it 'saves billing address without company field' do
+              put :update, params: { token: order.token, state: 'payment', order: { bill_address_attributes: bill_address_with_company } }
+
+              expect(response).to have_http_status(:redirect)
+              expect(order.reload.bill_address.company).to be_blank
+            end
+          end
+        end
       end
     end
   end
@@ -937,6 +1102,8 @@ describe Spree::CheckoutController, type: :controller do
   end
 
   describe '#apply_coupon_code' do
+    subject { patch :apply_coupon_code, params: { token: order.token, coupon_code: coupon_code } }
+
     let(:user) { create(:user) }
     let!(:order) { create(:order_with_line_items, state: 'payment', store: store, bill_address: nil, user: user) }
     let!(:line_item) { create(:line_item, order: order) }
@@ -944,7 +1111,6 @@ describe Spree::CheckoutController, type: :controller do
     let!(:promotion) { create(:promotion, name: 'Free shipping', code: 'freeship', stores: [store]) }
     let!(:promotion_action) { Spree::PromotionAction.create(promotion_id: promotion.id, type: 'Spree::Promotion::Actions::FreeShipping') }
 
-    subject { patch :apply_coupon_code, params: { token: order.token, coupon_code: coupon_code } }
 
     context 'when coupon code is valid' do
       let(:coupon_code) { 'FREESHIP' }
@@ -972,12 +1138,13 @@ describe Spree::CheckoutController, type: :controller do
       end
     end
 
-    xdescribe 'apply gift card' do
+    describe 'apply gift card' do
+      subject { patch :apply_coupon_code, params: { token: order.token, coupon_code: gift_card.code.upcase } }
+
       let(:user) { create(:user) }
       let(:gift_card) { create :gift_card, store: store, user: user }
       let(:coupon_code) { gift_card.code.upcase }
 
-      subject { patch :apply_coupon_code, params: { token: order.token, coupon_code: gift_card.code.upcase } }
 
       context 'when gift card is valid' do
         it 'applies the gift card' do
@@ -991,52 +1158,7 @@ describe Spree::CheckoutController, type: :controller do
         end
       end
 
-      xcontext 'for a gift card with minimal order amount' do
-        let(:user) { create(:user) }
-        let(:gift_card) { create(:gift_card, store: store, minimum_order_amount: minimal_order_amount, user: user) }
-
-        context 'when the condition is met' do
-          let(:minimal_order_amount) { order.total }
-
-          it 'applies the gift card' do
-            expect(controller).to receive(:track_event).with('coupon_entered', hash_including(order: order, coupon_code: gift_card.code.upcase))
-            expect(controller).to receive(:track_event).with('coupon_applied', hash_including(order: order, coupon_code: gift_card.code.upcase))
-
-            subject
-
-            expect(assigns[:result].status_code).to eq(:gift_card_applied)
-            expect(assigns[:result].error).to be(nil)
-
-            expect(order.reload.gift_card).to eq(gift_card)
-            expect(order.gift_card_total).to eq(gift_card.amount)
-            expect(order.total_applied_store_credit).to eq(gift_card.amount)
-          end
-        end
-
-        context 'when the condition is not met' do
-          let(:minimal_order_amount) { order.total + 1 }
-
-          it 'skips applying the gift card' do
-            subject
-
-            expect(assigns[:result].status_code).to eq(:gift_card_minimum_order_value_error)
-            expect(assigns[:result].error).to eq("You can't apply the gift card. The order total must be at least #{gift_card.display_minimum_order_amount}, excluding shipping cost.")
-
-            expect(order.reload.gift_card).to be(nil)
-            expect(order.gift_card_total).to eq(0)
-            expect(order.total_applied_store_credit).to eq(0)
-          end
-
-          it 'tracks the denied gift card' do
-            expect(controller).to receive(:track_event).with('coupon_entered', hash_including(order: order, coupon_code: gift_card.code.upcase))
-            expect(controller).to receive(:track_event).with('coupon_denied', hash_including(order: order, coupon_code: gift_card.code.upcase))
-
-            subject
-          end
-        end
-      end
-
-      xcontext 'applying a gift card already redeemed by order' do
+      context 'applying a gift card already redeemed by order' do
         let!(:old_order) { create(:order_with_totals, store: store, user: user) }
         let(:gift_card) { create :gift_card, store: store, amount: 50 }
         let(:coupon_code) { gift_card.code.upcase }
@@ -1061,6 +1183,8 @@ describe Spree::CheckoutController, type: :controller do
   end
 
   describe '#remove_coupon_code' do
+    subject { delete :remove_coupon_code, params: { token: order.token, coupon_code: coupon_code } }
+
     let(:user) { create(:user) }
     let!(:order) { create(:order_with_line_items, state: 'payment', store: store, bill_address: nil, user: user) }
     let!(:line_item) { create(:line_item, order: order) }
@@ -1069,7 +1193,6 @@ describe Spree::CheckoutController, type: :controller do
     let!(:promotion) { create(:promotion, name: 'Free shipping', code: coupon_code, stores: [store]) }
     let!(:promotion_action) { Spree::PromotionAction.create(promotion_id: promotion.id, type: 'Spree::Promotion::Actions::FreeShipping') }
 
-    subject { delete :remove_coupon_code, params: { token: order.token, coupon_code: coupon_code } }
 
     before do
       order.coupon_code = coupon_code
@@ -1086,11 +1209,12 @@ describe Spree::CheckoutController, type: :controller do
       expect(order.promotions).not_to include(promotion)
     end
 
-    xcontext 'for a gift card' do
+    context 'for a gift card' do
+      subject { patch :remove_coupon_code, params: { token: order.token, gift_card: coupon_code } }
+
       let(:gift_card) { create :gift_card, store: store }
       let(:coupon_code) { gift_card.code.upcase }
 
-      subject { patch :remove_coupon_code, params: { token: order.token, gift_card: coupon_code } }
 
       before do
         Spree::GiftCards::Apply.call(order: order, gift_card: gift_card)
@@ -1173,7 +1297,7 @@ describe Spree::CheckoutController, type: :controller do
       expect(response).to redirect_to spree.checkout_path(order.token)
 
       expect(order.reload.payments.count).to eq(1)
-      expect(order.payments.first).to be_invalid
+      expect(order.payments.first.state).to eq('invalid')
       expect(order.payments.first.source).to eq(store_credit)
       expect(order.payments.first.payment_method).to eq(payment_method)
       expect(order.payments.first.amount).to eq(12.34)

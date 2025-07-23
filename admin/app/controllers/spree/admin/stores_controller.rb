@@ -19,8 +19,10 @@ module Spree
         @store.mail_from_address = current_store.mail_from_address
 
         if @store.save
-          @store.users << try_spree_current_user
-          @store.save!
+          # Move/copy all existing users (staff) to the new store
+          current_store.role_users.each do |role_user|
+            @store.add_user(role_user.user, role_user.role)
+          end
 
           flash[:success] = flash_message_for(@store, :successfully_created)
           # redirect in view, Turbo doesn't support redirecting to a different host
@@ -29,7 +31,17 @@ module Spree
         end
       end
 
-      def edit; end
+      def edit
+        if params[:section] == 'emails'
+          add_breadcrumb Spree.t(:emails), spree.edit_admin_store_path(section: params[:section])
+        elsif params[:section] == 'policies'
+          add_breadcrumb Spree.t(:policies), spree.edit_admin_store_path(section: params[:section])
+        elsif params[:section] == 'checkout'
+          add_breadcrumb Spree.t(:checkout), spree.edit_admin_store_path(section: params[:section])
+        else
+          add_breadcrumb Spree.t(:store_details), spree.edit_admin_store_path(section: params[:section])
+        end
+      end
 
       def edit_emails; end
 
@@ -56,7 +68,7 @@ module Spree
       protected
 
       def permitted_store_params
-        params.require(:store).permit(permitted_store_attributes)
+        params.require(:store).permit(permitted_store_attributes + current_store.preferences.keys.map { |key| "preferred_#{key}" })
       end
 
       private

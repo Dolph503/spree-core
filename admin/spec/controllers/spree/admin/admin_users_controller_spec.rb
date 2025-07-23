@@ -10,22 +10,37 @@ RSpec.describe Spree::Admin::AdminUsersController, type: :controller do
   describe 'GET #index' do
     stub_authorization!
 
-    before do
-      admin_user
-      get :index
-    end
+    before { admin_user }
 
     it 'returns a successful response' do
+      get :index
       expect(response).to be_successful
     end
 
     it 'assigns @search' do
+      get :index
       expect(assigns(:search)).to be_a(Ransack::Search)
     end
 
     it 'assigns @collection' do
+      get :index
       expect(assigns(:collection)).to be_a(ActiveRecord::Relation)
       expect(assigns(:collection)).to include(admin_user)
+    end
+
+    context 'when users has roles from different resources' do
+      let(:second_store) { create(:store) }
+      let(:second_store_role) { create(:role_user, resource: second_store, user: admin_user) }
+
+      before do
+        second_store_role
+        get :index
+      end
+
+      it 'assigns @collection with roles from the current resource' do
+        expect(assigns(:collection).first.role_users.first).not_to eq(second_store_role)
+        expect(assigns(:collection).first.role_users.size).to eq(1)
+      end
     end
   end
 
@@ -35,11 +50,28 @@ RSpec.describe Spree::Admin::AdminUsersController, type: :controller do
     before { get :show, params: { id: admin_user.id } }
 
     it 'returns a successful response' do
+      get :show, params: { id: admin_user.id }
       expect(response).to be_successful
     end
 
     it 'assigns @admin_user' do
+      get :show, params: { id: admin_user.id }
       expect(assigns(:admin_user)).to eq(admin_user)
+    end
+
+    context 'when user has roles from different resources' do
+      let(:second_store) { create(:store) }
+      let(:second_store_role) { create(:role_user, resource: second_store, user: admin_user) }
+
+      before do
+        second_store_role
+        get :show, params: { id: admin_user.id }
+      end
+
+      it 'assigns @role_users with roles from the current resource' do
+        expect(assigns(:role_users).first).not_to eq(second_store_role)
+        expect(assigns(:role_users).size).to eq(1)
+      end
     end
   end
 
@@ -74,7 +106,7 @@ RSpec.describe Spree::Admin::AdminUsersController, type: :controller do
   end
 
   describe 'POST #create' do
-    let!(:invitation) { create(:invitation, inviter: admin_user, email: 'new@example.com', resource: store, role_ids: [role.id]) }
+    let!(:invitation) { create(:invitation, inviter: admin_user, email: 'new@example.com', resource: store, role_id: role.id) }
     let(:valid_params) do
       {
         token: invitation.token,
@@ -169,12 +201,15 @@ RSpec.describe Spree::Admin::AdminUsersController, type: :controller do
   describe 'PUT #update' do
     stub_authorization!
 
+    let(:new_role) { create(:role, name: 'new_role') }
+
     let(:valid_params) do
       {
         id: admin_user.id,
         admin_user: {
           first_name: 'Updated',
-          last_name: 'Name'
+          last_name: 'Name',
+          spree_role_ids: [role.id, new_role.id]
         }
       }
     end
@@ -189,11 +224,16 @@ RSpec.describe Spree::Admin::AdminUsersController, type: :controller do
       end
 
       it 'redirects to edit admin user path' do
-        expect(response).to redirect_to(spree.edit_admin_admin_user_path(admin_user))
+        expect(response).to redirect_to(spree.admin_admin_user_path(admin_user))
       end
 
       it 'sets a flash message' do
         expect(flash[:notice]).not_to be_nil
+      end
+
+      it 'updates the admin user roles' do
+        admin_user.reload
+        expect(admin_user.spree_roles).to contain_exactly(role, new_role)
       end
     end
 

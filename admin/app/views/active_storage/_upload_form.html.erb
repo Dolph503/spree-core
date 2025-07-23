@@ -2,7 +2,7 @@
 <% height ||= 300 %>
 <% crop ||= false unless defined?(crop) %>
 <% auto_submit ||= false %>
-<% can_delete ||= true unless defined?(can_delete) %>
+<% show_delete_button = defined?(can_delete) ? can_delete : true %>
 <% css ||= '' %>
 
 <% if field_name && form %>
@@ -22,7 +22,7 @@
           form.object.send(field_name),
           width: width,
           height: height,
-          class: 'img-fluid rounded-lg',
+          class: 'img-fluid rounded',
           data: { active_storage_upload_target: 'thumb' },
           loading: :lazy
         ) %>
@@ -36,7 +36,7 @@
 
         <% if crop %>
           <span class="text-muted ml-2 text-center small mt-2">
-            Recommended size: <%= width %>x<%= height %>px
+            <%= Spree.t('admin.recommended_size') %>: <%= width %>x<%= height %>px
           </span>
         <% end %>
       </div>
@@ -48,7 +48,7 @@
         <%= Spree.t('actions.select_file') %>
       </button>
 
-      <% if can_delete %>
+      <% if show_delete_button %>
         <button type="button" class="btn btn-danger ml-auto" data-action="active-storage-upload#remove" data-turbo-confirm="<%= Spree.t(:are_you_sure) %>">
           <%= icon('trash') %>
 

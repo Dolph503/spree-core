@@ -4,14 +4,19 @@ module Spree
 
     class StoreCreditsController < Spree::Admin::BaseController
       before_action :load_user
-      before_action :load_store_credit, only: [:new, :edit, :update]
+      before_action :load_store_credit, only: [:new, :edit, :update, :destroy]
       before_action :ensure_unused_store_credit, only: [:update]
 
       def index
-        @store_credits = scope.includes(:category).order(created_at: :desc)
+        @store_credits = scope.includes(:created_by).order(created_at: :desc)
         @store_credits = @store_credits.page(params[:page]).per(params[:per_page])
 
         @collection = @store_credits
+      end
+
+      def show
+        @store_credit = scope.find(params[:id])
+        @store_credit_events = @store_credit.store_credit_events.reverse_chronological.includes(:originator, :order)
       end
 
       def create
@@ -34,11 +39,10 @@ module Spree
 
       def update
         @store_credit.assign_attributes(permitted_store_credit_params)
-        @store_credit.created_by = try_spree_current_user
 
         if @store_credit.save
           flash[:success] = flash_message_for(@store_credit, :successfully_updated)
-          redirect_to spree.admin_user_path(@user)
+          redirect_to spree.admin_user_store_credit_path(@user, @store_credit)
         else
           flash[:error] = Spree.t('store_credit.errors.unable_to_update')
           render :edit, status: :unprocessable_entity
@@ -46,7 +50,6 @@ module Spree
       end
 
       def destroy
-        @store_credit = @user.store_credits.for_store(current_store).find(params[:id])
         ensure_unused_store_credit
 
         if @store_credit.destroy
@@ -73,6 +76,10 @@ module Spree
           flash[:error] = Spree.t(:user_not_found)
           redirect_to spree.admin_path
         end
+
+        @breadcrumb_icon = 'users'
+        add_breadcrumb Spree.t(:customers), :admin_users_path
+        add_breadcrumb @user.name, spree.admin_user_path(@user)
       end
 
       def load_store_credit

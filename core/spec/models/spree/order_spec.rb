@@ -171,6 +171,36 @@ describe Spree::Order, type: :model do
     end
   end
 
+  describe '#after_cancel' do
+    context 'when gift card is present' do
+      let(:gift_card) { create(:gift_card, amount: 110) }
+      let(:order) { create(:completed_order_with_totals, store: store, gift_card: gift_card, total: 110) }
+      let!(:payment) { create(:store_credit_payment, order: order, state: 'completed', amount: 110) }
+
+      it 'handles additional actions' do
+        order.cancel
+        order.reload
+
+        expect(order.shipments).to all(have_attributes(state: 'canceled'))
+        expect(order.payments.store_credits).to all(have_attributes(state: 'void'))
+      end
+    end
+
+    context 'when no gift card' do
+      let(:order) { create(:completed_order_with_totals, store: store) }
+      let!(:payment) { create(:payment, order: order, state: 'completed', amount: 10) }
+
+      it 'handles additional actions' do
+        order.cancel
+        order.reload
+
+        expect(order.shipments).to all(have_attributes(state: 'canceled'))
+        expect(order.payments).to all(have_attributes(state: 'void'))
+        expect(order.payments.store_credits).to all(have_attributes(state: 'void'))
+      end
+    end
+  end
+
   describe '#canceled_by' do
     subject { order.canceled_by(admin_user) }
 
@@ -889,9 +919,9 @@ describe Spree::Order, type: :model do
     end
   end
 
-  describe '#can_be_destroyed?' do
+  describe '#can_be_deleted?' do
     shared_examples 'cannot be destroyed' do
-      it { expect(order.can_be_destroyed?).to be false }
+      it { expect(order.can_be_deleted?).to be false }
     end
 
     context 'when order is completed' do
@@ -910,7 +940,7 @@ describe Spree::Order, type: :model do
       let(:order) { create(:order) }
 
       it 'can be destroyed' do
-        expect(order.can_be_destroyed?).to be true
+        expect(order.can_be_deleted?).to be true
       end
     end
   end
@@ -1067,6 +1097,20 @@ describe Spree::Order, type: :model do
     it 'returns the value as a spree money' do
       allow(order).to receive(:pre_tax_total).and_return(10.55)
       expect(order.display_pre_tax_total).to eq(Spree::Money.new(10.55))
+    end
+  end
+
+  describe '#analytics_subtotal' do
+    let(:order) { create(:order_with_line_items, line_items_count: 2) }
+
+    before do
+      order.update_column(:item_total, 100)
+      order.line_items[0].update_column(:promo_total, 10)
+      order.line_items[1].update_column(:promo_total, 5)
+    end
+
+    it 'returns the subtotal used for analytics integrations' do
+      expect(order.analytics_subtotal).to eq(115)
     end
   end
 
@@ -2002,6 +2046,7 @@ describe Spree::Order, type: :model do
     let(:order) { create(:order) }
     let(:variant) { create(:variant) }
     let(:variant_2) { create(:variant) }
+    let(:variant_3) { create(:variant, track_inventory: false) }
 
     before do
       create(:line_item, order: order, variant: variant, quantity: 1)
@@ -2009,6 +2054,9 @@ describe Spree::Order, type: :model do
 
       create(:line_item, order: order, variant: variant_2, quantity: 1)
       variant_2.stock_items.first.update(count_on_hand: 1, backorderable: true)
+
+      create(:line_item, order: order, variant: variant_3, quantity: 1)
+      variant_3.stock_items.first.update(count_on_hand: 0, backorderable: true)
     end
 
     it 'returns the backordered variants' do
@@ -2087,6 +2135,125 @@ describe Spree::Order, type: :model do
       it 'returns nil and does not add an error to the order' do
         expect(subject).to be_nil
         expect(order.errors.full_messages).to be_empty
+      end
+    end
+  end
+
+  describe '#to_csv' do
+    subject { order.to_csv }
+
+    context 'when order has no line items' do
+      let(:order) { create(:order) }
+
+      it 'returns no csv lines' do
+        expect(subject).to eq([])
+      end
+    end
+
+    context 'when order has line items' do
+      let(:order) { create(:order_with_line_items) }
+
+      let(:presenter) { Spree::CSV::OrderLineItemPresenter }
+      let(:presenter_instance) { instance_double(presenter) }
+
+      before do
+        allow(presenter).to receive(:new).and_return(presenter_instance)
+        allow(presenter_instance).to receive(:call).and_return('csv_line')
+      end
+
+      it 'returns the csv lines' do
+        expect(subject).to eq(['csv_line'])
+      end
+    end
+  end
+
+  context 'quick checkout' do
+    let(:digital_shipping_method) { create(:digital_shipping_method) }
+    let(:digital_product) { create(:product, shipping_category: digital_shipping_method.shipping_categories.first) }
+    let(:digital_variant) { create(:variant, product: digital_product, digitals: [create(:digital)]) }
+    let(:digital_line_item) { create(:line_item, variant: digital_variant, quantity: 1, order: order) }
+    let(:physical_line_item) { create(:line_item, quantity: 1, order: order) }
+    let(:order) { create(:order) }
+
+    describe '#quick_checkout?' do
+      it 'returns false if the order has no shipping address' do
+        expect(order.quick_checkout?).to be false
+      end
+
+      it 'returns false if the order has a shipping address but it is not a quick checkout address' do
+        order.shipping_address = create(:address)
+        expect(order.quick_checkout?).to be false
+      end
+
+      it 'returns true if the order has a quick checkout shipping address' do
+        order.shipping_address = create(:address, quick_checkout: true)
+        expect(order.quick_checkout?).to be true
+      end
+    end
+
+    describe '#quick_checkout_available?' do
+      it 'returns true if the order is fully digital' do
+        digital_line_item
+        order.update_totals
+
+        expect(order.quick_checkout_available?).to be true
+      end
+
+      it 'returns true if the order has no digital products at all' do
+        physical_line_item
+        order.update_totals
+
+        expect(order.quick_checkout_available?).to be true
+      end
+
+      it 'returns false if the order has physical products and some digital products' do
+        physical_line_item
+        digital_line_item
+        order.update_totals
+
+        expect(order.quick_checkout_available?).to be false
+      end
+
+      it 'returns false if order has many shipments' do
+        physical_line_item
+        digital_line_item
+        order.update_totals
+        order.create_proposed_shipments
+
+        expect(order.shipments.count).to eq(2)
+
+        expect(order.quick_checkout_available?).to be false
+      end
+
+      it 'returns false if order does not require payment' do
+        physical_line_item.update(price: 0)
+        order.update_totals
+
+        expect(order.total).to eq(0)
+        expect(order.payment_required?).to be false
+
+        expect(order.quick_checkout_available?).to be false
+      end
+    end
+
+    describe '#quick_checkout_require_address?' do
+      let(:order) { create(:order) }
+
+      it 'returns true if the order is not digital and delivery is required' do
+        expect(order.quick_checkout_require_address?).to be true
+      end
+
+      it 'returns false if the order is digital' do
+        digital_line_item
+        order.update_totals
+
+        expect(order.quick_checkout_require_address?).to be false
+      end
+
+      it 'returns false if the order does not require delivery' do
+        allow(order).to receive(:delivery_required?).and_return(false)
+
+        expect(order.quick_checkout_require_address?).to be false
       end
     end
   end

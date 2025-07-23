@@ -5,7 +5,7 @@
     </h5>
     <% if can?(:update_customer, @order) || can?(:update_addresses, @order) %>
       <div class="dropdown ml-auto" id="customer-edit-dropdown">
-        <%= link_to_with_icon 'dots', nil, '#', class: 'btn btn-light btn-sm px-2', data: { toggle: 'dropdown', test_id: 'dropdown-toggle' } %>
+        <%= link_to_with_icon 'dots-vertical', nil, '#', class: 'btn btn-light btn-sm px-1', data: { toggle: 'dropdown', test_id: 'dropdown-toggle' } %>
         <div class="dropdown-menu dropdown-menu-right" >
           <div data-toggle="modal" data-target="#modal">
             <% if can?(:update_customer, @order) && !@order.user.present? %>
@@ -17,7 +17,6 @@
             <% end %>
           </div>
           <% if can?(:update_customer, @order) %>
-            <div class="dropdown-divider"></div>
             <% if @order.user.present? %>
               <%= link_to Spree.t('admin.orders.remove_user_from_this_order'), spree.admin_order_user_path(@order), class: 'dropdown-item btn-danger', data: { turbo_method: :delete, turbo_confirm: Spree.t(:are_you_sure), turbo_frame: :_top } %>
             <% else %>
@@ -38,7 +37,10 @@
           <%= render 'spree/admin/shared/user', user: @order.user %>
           <%= render 'spree/admin/orders/user_overview', user: @order.user %>
         <% elsif @order.email.present? %>
-          <%= mail_to truncate(@order.email, length: 35), class: 'text-dark with-tip', title: @order.email %>
+          <div class="d-flex align-items-center w-100">
+            <%= mail_to @order.email, @order.email, class: 'text-blue' %>
+            <%= clipboard_component(@order.email) %>
+          </div>
         <% else %>
           <span class="text-muted">
             <%= Spree.t(:no_email_provided) %>

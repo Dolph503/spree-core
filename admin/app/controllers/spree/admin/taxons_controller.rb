@@ -15,6 +15,12 @@ module Spree
 
       before_action :load_form_data, only: [:new, :create, :edit, :update]
 
+      add_breadcrumb Spree.t(:products), :admin_products_path
+      add_breadcrumb Spree.t(:taxonomies), :admin_taxonomies_path
+
+      add_breadcrumb_icon 'package'
+      before_action :add_breadcrumb_taxonomy
+
       def show
         redirect_to location_after_save
       end
@@ -71,7 +77,10 @@ module Spree
       end
 
       def set_permalink_params
-        params[:taxon][:permalink] = "#{@parent_permalink}/" + params[:permalink_part] if params.key? 'permalink_part'
+        return unless params[:permalink_part]
+
+        params[:taxon] ||= {}
+        params[:taxon][:permalink] = [@parent_permalink.presence, params[:permalink_part]].compact_blank.join('/')
       end
 
       def collection_url
@@ -92,6 +101,20 @@ module Spree
         @rule_match_policies = Spree::TaxonRule::MATCH_POLICIES.map do |policy|
           [Spree.t("admin.taxon_rules.match_policies.#{policy}"), policy]
         end
+      end
+
+      def add_breadcrumb_taxonomy
+        return unless @taxonomy.present?
+
+        add_breadcrumb @taxonomy.name, collection_url
+
+        if @object.present? && @object.persisted?
+          add_breadcrumb @object.name, spree.edit_admin_taxonomy_taxon_path(@taxonomy, @object.id)
+        end
+      end
+
+      def permitted_resource_params
+        params.require(:taxon).permit(permitted_taxon_attributes)
       end
     end
   end

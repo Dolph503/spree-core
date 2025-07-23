@@ -1,6 +1,8 @@
 module Spree
   module Admin
     class AdminUsersController < BaseController
+      add_breadcrumb Spree.t(:users), :admin_admin_users_path
+
       skip_before_action :authorize_admin, only: [:new, :create]
       before_action :load_parent, except: [:new, :create]
       before_action :load_roles, except: [:index]
@@ -13,13 +15,18 @@ module Spree
       def index
         params[:q] ||= {}
         params[:q][:s] ||= 'created_at asc'
-        @search = scope.includes(:spree_roles, avatar_attachment: :blob).ransack(params[:q])
+        @search = scope.includes(role_users: :role, avatar_attachment: :blob).
+                        where(role_users: { resource: @parent }).
+                        ransack(params[:q])
         @collection = @search.result
       end
 
       # GET /admin/admin_users/:id
       def show
         authorize! :read, @admin_user
+        @role_users = @admin_user.role_users.includes(:role).where(resource: @parent)
+
+        add_breadcrumb @admin_user.email, spree.admin_admin_user_path(@admin_user)
       end
 
       # GET /admin/admin_users/new?token=<token>
@@ -55,8 +62,10 @@ module Spree
       def update
         authorize! :update, @admin_user
 
-        if @admin_user.update(permitted_params.merge(spree_role_ids: []))
-          redirect_to spree.edit_admin_admin_user_path(@admin_user), status: :see_other, notice: flash_message_for(@admin_user, :successfully_updated)
+        permitted_params = params.require(:admin_user).permit(permitted_user_attributes | [spree_role_ids: []])
+
+        if @admin_user.update(permitted_params)
+          redirect_to spree.admin_admin_user_path(@admin_user), status: :see_other, notice: flash_message_for(@admin_user, :successfully_updated)
         else
           render :edit, status: :unprocessable_entity
         end
@@ -83,7 +92,7 @@ module Spree
       end
 
       def load_admin_user
-        @admin_user = scope.find(params[:id])
+        @admin_user = Spree.admin_user_class.accessible_by(current_ability).find(params[:id])
       end
 
       # for self signup flow, we use the minimal layout

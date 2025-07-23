@@ -37,6 +37,7 @@ require 'ffaker'
 
 require 'spree/testing_support/authorization_helpers'
 require 'spree/testing_support/factories'
+require 'spree/api/testing_support/factories'
 require 'spree/testing_support/preferences'
 require 'spree/testing_support/jobs'
 require 'spree/testing_support/store'
@@ -44,11 +45,14 @@ require 'spree/testing_support/controller_requests'
 require 'spree/testing_support/url_helpers'
 require 'spree/testing_support/order_walkthrough'
 require 'spree/admin/testing_support/capybara_utils'
+require 'spree/admin/testing_support/tom_select'
 require 'spree/testing_support/capybara_config'
 require 'spree/testing_support/rspec_retry_config'
 require 'spree/testing_support/image_helpers'
 
 require 'spree/core/controller_helpers/strong_parameters'
+
+require 'action_text/system_test_helper'
 
 RSpec.configure do |config|
   config.color = true
@@ -65,7 +69,7 @@ RSpec.configure do |config|
 
   config.before(:suite) do
     Capybara.match = :smart
-    Capybara.javascript_driver = :selenium_chrome
+    Capybara.javascript_driver = :selenium_chrome_headless
     Capybara.default_max_wait_time = 10
     Capybara.raise_server_errors = false
     # Clean out the database state before the tests run
@@ -87,12 +91,15 @@ RSpec.configure do |config|
   config.include FactoryBot::Syntax::Methods
 
   config.include Spree::Admin::TestingSupport::CapybaraUtils
+  config.include Spree::Admin::TestingSupport::TomSelect
   config.include Spree::TestingSupport::Preferences
   config.include Spree::TestingSupport::UrlHelpers
   config.include Spree::TestingSupport::ControllerRequests, type: :controller
   config.include Spree::TestingSupport::ImageHelpers
 
   config.include Spree::Core::ControllerHelpers::StrongParameters, type: :controller
+
+  config.include ActionText::SystemTestHelper, type: :feature
 
   config.order = :random
   Kernel.srand config.seed

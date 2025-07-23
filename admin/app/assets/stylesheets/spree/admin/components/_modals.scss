@@ -14,9 +14,11 @@ body.modal-open {
 
 .modal-header {
   @extend .align-items-center;
+  border-color: $gray-50;
 
   .modal-title {
     margin-bottom: 0;
+    font-weight: $font-weight-bold;
   }
 
   .btn-close {
@@ -27,12 +29,13 @@ body.modal-open {
   display: flex;
   justify-content: end;
   padding: $modal-inner-padding;
-  background-color: #FAFAFA;
+  background-color: $gray-25;
   border-top: 1px solid $gray-50;
 
   .btn {
     display: inline-flex ;
     width: auto !important;
+    height: 2.5rem;
   }
 }
 

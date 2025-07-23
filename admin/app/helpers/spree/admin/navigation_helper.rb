@@ -41,7 +41,7 @@ module Spree
           button_tag(raw(selected_option), class: 'btn btn-light btn-sm', data: { toggle: 'dropdown', expanded: false }) +
             content_tag(:div, class: 'dropdown-menu') do
               per_page_options.map do |option|
-                link_to option, per_page_dropdown_params(option), class: "dropdown-item #{'active' if option == selected_option}"
+                link_to option, per_page_dropdown_params(option), class: "dropdown-item #{'active' if option.to_i == selected_option.to_i}"
               end.join.html_safe
             end
         end
@@ -52,11 +52,9 @@ module Spree
       # @param per_page [Integer] the number of items per page
       # @return [Hash] the params to apply per page
       def per_page_dropdown_params(per_page)
-        args = params.permit!.to_h.clone
-        args.delete(:page)
-        args.delete(:per_page)
-        args.merge!(per_page: per_page)
-        args
+        # Keep only safe query params that should survive pagination changes
+        safe_params = request.query_parameters.slice(:q)
+        safe_params.merge(per_page: per_page, page: nil)
       end
 
       # render a button link to edit a resource
@@ -114,6 +112,13 @@ module Spree
           text = "#{icon} #{label}"
         end
         link_to(text.html_safe, url, options)
+      end
+
+      def link_to_export_modal
+        link_to '#', data: { toggle: 'modal', target: '#export-modal' }, class: 'btn btn-light' do
+          icon('table-export', class: 'mr-0 mr-lg-2') +
+          content_tag(:span, Spree.t(:export), class: 'd-none d-lg-inline')
+        end if can?(:create, Spree::Export)
       end
 
       # renders an active link with an icon, using the active_link_to method from https://github.com/comfy/active_link_to gem
@@ -190,7 +195,7 @@ module Spree
       # @return [String] the badge with the icon
       def active_badge(condition, options = {})
         label = options[:label]
-        label ||= condition ? Spree.t(:say_yes) : Spree.t(:say_no)
+        label ||= condition ? Spree.t(:say_yes).to_s : Spree.t(:say_no).to_s
         label = icon('check') + label if condition
 
         css_class = condition ? 'badge-active' : 'badge-inactive'
@@ -233,7 +238,7 @@ module Spree
           link_to url, opts, &block
         else
           link_to url, opts do
-            (label + icon('external-link', class: 'ml-1 mr-0 small')).html_safe
+            (label + icon('external-link', class: 'ml-1 mr-0 small opacity-50')).html_safe
           end
         end
       end
@@ -265,8 +270,16 @@ module Spree
       # @param css [String] the css class of the help bubble
       # @return [String] the help bubble with the icon
       def help_bubble(text = '', placement = 'bottom', css: nil)
-        css ||= 'text-muted'
+        css ||= 'text-muted opacity-75 cursor-default'
         content_tag :small, icon('info-square-rounded', class: css), data: { placement: placement }, class: "with-tip #{css}", title: text
+      end
+
+      def render_breadcrumb_icon
+        if settings_active?
+          icon('settings')
+        elsif @breadcrumb_icon
+          icon(@breadcrumb_icon)
+        end
       end
     end
   end

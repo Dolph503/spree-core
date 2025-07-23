@@ -203,6 +203,74 @@ describe Spree::Shipment, type: :model do
     end
   end
 
+  describe '#item_quantity' do
+    it 'returns the sum of all manifest quantities with multiple quantities per line_item' do
+      order = create(:order)
+      variant1 = create(:variant)
+      variant2 = create(:variant)
+      create(:line_item, order: order, variant: variant1, quantity: 3)
+      create(:line_item, order: order, variant: variant2, quantity: 2)
+      shipment = create(:shipment, order: order)
+      expect(shipment.item_quantity).to eq(5)
+    end
+
+    it 'returns the sum of all manifest quantities with single quantity per line_item' do
+      order = create(:order)
+      variant1 = create(:variant)
+      variant2 = create(:variant)
+      create(:line_item, order: order, variant: variant1, quantity: 1)
+      create(:line_item, order: order, variant: variant2, quantity: 1)
+      shipment = create(:shipment, order: order)
+      expect(shipment.item_quantity).to eq(2)
+    end
+
+    it 'returns only the sum of items in the specific shipment, not in other shipments' do
+      order = create(:order)
+      variant1 = create(:variant)
+      variant2 = create(:variant)
+      line_item1 = create(:line_item, order: order, variant: variant1, quantity: 2)
+      line_item2 = create(:line_item, order: order, variant: variant2, quantity: 4)
+
+      # First shipment for line_item1
+      shipment1 = create(:shipment, order: order)
+      shipment1.inventory_units.destroy_all
+      shipment1.set_up_inventory('on_hand', variant1, order, line_item1, 2)
+
+      # Second shipment for line_item2
+      shipment2 = create(:shipment, order: order)
+      shipment2.inventory_units.destroy_all
+      shipment2.set_up_inventory('on_hand', variant2, order, line_item2, 4)
+
+      expect(shipment1.item_quantity).to eq(2)
+      expect(shipment2.item_quantity).to eq(4)
+    end
+
+    it 'returns 0 if there are no items in the shipment' do
+      shipment = create(:shipment)
+      expect(shipment.item_quantity).to eq(0)
+    end
+  end
+
+  describe '#item_weight' do
+    it 'equals line items weight' do
+      order = create(:order)
+      variant = create(:variant, weight: 10)
+      line_item = create(:line_item, order: order, variant: variant, quantity: 2)
+      shipment = create(:shipment, order: order)
+      expect(shipment.item_weight).to eq(20.0)
+    end
+  end
+
+  describe '#weight_unit' do
+    it 'equals line items weight unit' do
+      order = create(:order)
+      variant = create(:variant, weight: 10, weight_unit: 'kg')
+      line_item = create(:line_item, order: order, variant: variant, quantity: 2)
+      shipment = create(:shipment, order: order)
+      expect(shipment.weight_unit).to eq('kg')
+    end
+  end
+
   it '#discounted_cost' do
     shipment = create(:shipment)
     shipment.cost = 10
@@ -302,6 +370,37 @@ describe Spree::Shipment, type: :model do
       it 'still returns variant expected' do
         expect(shipment.manifest.first.variant).to eq variant
       end
+    end
+  end
+
+  describe '#can_get_rates?' do
+    let(:digital_shipping_method) { create(:digital_shipping_method) }
+    let(:digital_product) { create(:product, shipping_category: digital_shipping_method.shipping_categories.first) }
+    let(:digital_line_item) { create(:line_item, variant: create(:variant, product: digital_product)) }
+
+    it 'returns true if order is digital and it does not have a ship address' do
+      order.ship_address = nil
+      order.line_items = [digital_line_item]
+      expect(order.digital?).to eq(true)
+      expect(shipment.send(:can_get_rates?)).to be_truthy
+    end
+
+    it 'returns false if order is not digital and it does not have a ship address' do
+      order.ship_address = nil
+      expect(order.digital?).to eq(false)
+      expect(shipment.send(:can_get_rates?)).to be_falsey
+    end
+
+    it 'returns false when order\'s ship address is not valid' do
+      order.ship_address = build(:address, address1: nil)
+      expect(order.digital?).to eq(false)
+      expect(shipment.send(:can_get_rates?)).to be_falsey
+    end
+
+    it 'returns true when order\'s ship address is valid' do
+      order.ship_address = build(:address)
+      expect(order.digital?).to eq(false)
+      expect(shipment.send(:can_get_rates?)).to be_truthy
     end
   end
 
@@ -603,6 +702,17 @@ describe Spree::Shipment, type: :model do
       shipment.stock_location = create(:stock_location)
       expect(shipment.stock_location).to receive(:unstock).with(variant, 1, shipment)
       shipment.after_resume
+    end
+
+    context 'for a shipment item that does not track inventory' do
+      before { variant.update(track_inventory: false) }
+
+      it 'skips unstocking the shipment item' do
+        allow(shipment).to receive(:inventory_units).and_return([inventory_unit])
+        shipment.stock_location = create(:stock_location)
+        expect(shipment.stock_location).not_to receive(:unstock)
+        shipment.after_resume
+      end
     end
   end
 

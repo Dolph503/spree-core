@@ -35,17 +35,18 @@
 	}
 }
 
+.card .card {
+  border-radius: $border-radius;
+}
+
 .card-header, .card-footer {
   background-color: transparent;
-}
-.card-header, .card-footer, .card-body {
-  border-top: 0 none;
 }
 .card-header {
   display: flex;
   align-items: center;
   height: 50px;
-  border-bottom-color: $gray-50;
+  border-bottom: 1px solid $gray-50;
 
   .card-title {
     margin-bottom: 0;
@@ -59,11 +60,13 @@
   border-color: $gray-50 !important;
 }
 
+.card, .card-lg {
+  box-shadow: $card-box-shadow;
+  background-color: $card-bg;
+  border-radius: $border-radius-lg;
+}
 .card-lg {
   margin-bottom: 1rem;
-  background-color: $white;
-  border-radius: $border-radius-lg;
-  border: 1px solid $card-border-color;
   padding: 0;
 }
 
@@ -118,8 +121,5 @@
   }
   .card-body {
     border-top: 1px solid $gray-50;
-  }
-  .card-header {
-    border: 0 none;
   }
 }

@@ -11,7 +11,7 @@ module Spree
       before_action :refresh_shipping_rates, only: :edit
 
       def update
-        @result = Spree::Dependencies.shipment_update_service.constantize.call(shipment: @shipment, shipment_attributes: shipment_params)
+        @result = Spree::Dependencies.shipment_update_service.constantize.call(shipment: @shipment, shipment_attributes: permitted_resource_params)
         flash[:success] = Spree.t(:successfully_updated, resource: Spree.t(:shipment)) if @result.success?
 
         redirect_back fallback_location: spree.edit_admin_order_path(@order)
@@ -55,7 +55,7 @@ module Spree
 
         if errors.any?
           flash[:error] = errors.to_sentence
-          return redirect_back_or_default(spree.edit_admin_order_path(@order))
+          return redirect_back(fallback_location: spree.edit_admin_order_path(@order))
         end
 
         if transfer.valid? && transfer.run!
@@ -64,7 +64,7 @@ module Spree
           flash[:error] = transfer.errors.full_messages.to_sentence
         end
 
-        redirect_back_or_default(spree.edit_admin_order_path(@order))
+        redirect_back(fallback_location: spree.edit_admin_order_path(@order))
       end
 
       private
@@ -94,7 +94,7 @@ module Spree
         @variant = current_store.variants.accessible_by(current_ability, :manage).find(params[:variant_id])
       end
 
-      def shipment_params
+      def permitted_resource_params
         params.require(:shipment).permit(permitted_shipment_attributes)
       end
     end

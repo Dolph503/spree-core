@@ -7,12 +7,17 @@ module Spree
 
       def create
         page_section_type = params.dig(:page_section, :type)
-        allowed_types = Rails.application.config.spree.page_sections.map(&:to_s)
+        allowed_types = available_page_section_types.map(&:to_s)
 
-        if allowed_types.include?(page_section_type) && page_section_type.safe_constantize.present?
-          @page_section = page_section_type.constantize.new(permitted_resource_params)
-          @page_section.pageable = @pageable
-          @page_section.save!
+        if allowed_types.include?(page_section_type)
+          # Find the actual class from our allowed types rather than using constantize
+          section_class = available_page_section_types.find { |type| type.to_s == page_section_type }
+
+          if section_class
+            @page_section = section_class.new(permitted_resource_params)
+            @page_section.pageable = @pageable
+            @page_section.save!
+          end
         end
       end
 
@@ -51,6 +56,26 @@ module Spree
                     elsif params[:theme_id].present?
                       current_store.theme_previews.find(params[:theme_id])
                     end
+      end
+
+      def available_page_section_types
+        return [] unless @pageable.present?
+
+        if @pageable.is_a?(Spree::Theme)
+          @pageable.available_page_sections
+        elsif @pageable.respond_to?(:theme)
+          @pageable.theme.available_page_sections
+        else
+          []
+        end
+      end
+
+      def permitted_resource_params
+        params.require(:page_section).permit(
+          permitted_page_section_attributes +
+          [link_attributes: permitted_page_link_attributes + [:id]] +
+          @object.preferences.keys.map { |key| "preferred_#{key}" }
+        )
       end
     end
   end

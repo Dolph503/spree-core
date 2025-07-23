@@ -9,6 +9,10 @@ button[disabled]        .show-when-enabled { display: none; }
   @include button-variant(theme-color('success'), theme-color('success'), theme-color('success') );
 }
 
+.btn {
+  box-shadow: $btn-box-shadow;
+}
+
 .btn,
 .nav-pills > li > a {
   vertical-align: middle;
@@ -62,40 +66,28 @@ button[disabled]        .show-when-enabled { display: none; }
   }
 }
 
-.btn-hover {
-  &:hover, &:focus {
-    text-decoration: none !important;
-    background-color: $gray-50 !important;
-  }
-}
 .hover-light {
   &:hover, &:focus {
-    background-color: $gray-25 !important;
-    text-decoration: none !important;
+    background-color: $gray-25;
+    text-decoration: none;
   }
 }
 .hover-gray {
   &:hover, &:focus {
-    background-color: $gray-100 !important;
-    text-decoration: none !important;
-  }
-}
-.hover-gray-50 {
-  &:hover, &:focus {
-    background-color: $gray-50 !important;
-    text-decoration: none !important;
+    background-color: $gray-100;
+    text-decoration: none;
   }
 }
 .hover-gray-200 {
   &:hover, &:focus {
-    background-color: $gray-200 !important;
-    text-decoration: none !important;
+    background-color: $gray-200;
+    text-decoration: none;
   }
 }
 .hover-primary {
   &:hover, &:focus {
-    background-color: theme-color('black') !important;
-    text-decoration: none !important;
+    background-color: theme-color('black');
+    text-decoration: none;
   }
 }
 
@@ -139,7 +131,7 @@ button[disabled]        .show-when-enabled { display: none; }
 
   &:hover {
     opacity: 0.8 !important;
-    background-color: $gray-100 !important;
+    background-color: $gray-50 !important;
   }
 }
 
@@ -156,7 +148,7 @@ button[disabled]        .show-when-enabled { display: none; }
   color: $gray-700;
 
   &:hover, &:focus {
-    border-color: $gray-100;
+    border-color: $border-color;
     background-color: $gray-25;
     color: $gray-900;
   }
@@ -182,17 +174,13 @@ button[disabled]        .show-when-enabled { display: none; }
   }
 }
 
-.page-link {
-  @extend .btn;
-  @extend .btn-sm;
+.btn-clipboard {
   @extend .btn-light;
-  @extend .ml-1;
-  @extend .p-2;
+  @extend .btn-sm;
+  @extend .px-1;
+  @extend .ml-2;
+  @extend .font-size-sm;
 
-  .ti {
-    @extend .mr-0;
-  }
-}
-.page-link.disabled {
-  cursor: not-allowed;
+  min-width: 24px;
+  height: 24px;
 }

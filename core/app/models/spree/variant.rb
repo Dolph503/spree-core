@@ -73,6 +73,8 @@ module Spree
     after_create :create_stock_items
     after_create :set_master_out_of_stock, unless: :is_master?
     after_commit :clear_line_items_cache, on: :update
+
+    after_save :create_default_stock_item, unless: :track_inventory?
     after_update_commit :handle_track_inventory_change
 
     after_commit :remove_prices_from_master_variant, on: [:create, :update], unless: :is_master?
@@ -80,7 +82,7 @@ module Spree
 
     after_touch :clear_in_stock_cache
 
-    scope :in_stock, -> { left_joins(:stock_items).where("#{Spree::StockItem.table_name}.count_on_hand > ? OR #{Spree::Variant.table_name}.track_inventory = ?", 0, false) }
+    scope :in_stock, -> { left_joins(:stock_items).where("#{Spree::Variant.table_name}.track_inventory = ? OR #{Spree::StockItem.table_name}.count_on_hand > ?", false, 0) }
     scope :backorderable, -> { left_joins(:stock_items).where(spree_stock_items: { backorderable: true }) }
     scope :in_stock_or_backorderable, -> { in_stock.or(backorderable) }
 
@@ -553,11 +555,17 @@ module Spree
       line_items.update_all(updated_at: Time.current)
     end
 
+    def create_default_stock_item
+      return if stock_items.any?
+
+      Spree::Store.current.default_stock_location.set_up_stock_item(self)
+    end
+
     def handle_track_inventory_change
       return unless track_inventory_previously_changed?
       return if track_inventory
 
-      stock_items.update_all(backorderable: true, count_on_hand: 0, updated_at: Time.current)
+      stock_items.update_all(count_on_hand: 0, updated_at: Time.current)
     end
 
     def remove_prices_from_master_variant

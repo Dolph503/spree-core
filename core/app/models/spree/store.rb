@@ -13,6 +13,7 @@ module Spree
     include Spree::Stores::Socials
     include Spree::Webhooks::HasWebhooks if defined?(Spree::Webhooks::HasWebhooks)
     include Spree::Security::Stores if defined?(Spree::Security::Stores)
+    include Spree::UserManagement
 
     #
     # Magic methods
@@ -24,8 +25,8 @@ module Spree
     # Translations
     #
     TRANSLATABLE_FIELDS = %i[name meta_description meta_keywords seo_title facebook
-                             twitter instagram customer_support_email description
-                             address contact_phone new_order_notifications_email].freeze
+                             twitter instagram customer_support_email
+                             address contact_phone].freeze
     translates(*TRANSLATABLE_FIELDS, column_fallback: !Spree.always_use_translations?)
     self::Translation.class_eval do
       acts_as_paranoid
@@ -47,6 +48,9 @@ module Spree
     preference :password_protected, :boolean, default: false
     # Checkout preferences
     preference :guest_checkout, :boolean, default: true
+    preference :special_instructions_enabled, :boolean, default: false
+    # Address preferences
+    preference :company_field_enabled, :boolean, default: false
     # digital assets preferences
     preference :limit_digital_download_count, :boolean, default: true
     preference :limit_digital_download_days, :boolean, default: true
@@ -100,12 +104,12 @@ module Spree
     has_many :custom_domains, class_name: 'Spree::CustomDomain', dependent: :destroy
     has_one :default_custom_domain, -> { where(default: true) }, class_name: 'Spree::CustomDomain'
 
-    has_many :posts
-    has_many :post_categories
+    has_many :posts, class_name: 'Spree::Post'
+    has_many :post_categories, class_name: 'Spree::PostCategory'
 
-    # Store Staff
-    has_many :resource_users, class_name: 'Spree::ResourceUser', as: :resource
-    has_many :users, through: :resource_users, source: :user, source_type: Spree.admin_user_class.to_s
+    has_many :integrations, class_name: 'Spree::Integration'
+
+    has_many :gift_cards, class_name: 'Spree::GiftCard', dependent: :destroy
 
     #
     # Page Builder associations
@@ -191,7 +195,7 @@ module Spree
     #
     default_scope { order(created_at: :asc) }
     scope :by_custom_domain, ->(url) { left_joins(:custom_domains).where("#{Spree::CustomDomain.table_name}.url" => url) }
-    scope :by_url, ->(url) { where("#{table_name}.url like ?", "%#{url}%") }
+    scope :by_url, ->(url) { where(url: url).or(where("#{table_name}.url like ?", "%#{url}%")) }
 
     #
     # Delegations
@@ -342,9 +346,11 @@ module Spree
                                     end
     end
 
+    # Returns the default stock location for the store or creates a new one if it doesn't exist
+    # @return [Spree::StockLocation]
     def default_stock_location
       @default_stock_location ||= begin
-        stock_location_scope = Spree::StockLocation.order_default
+        stock_location_scope = Spree::StockLocation.where(default: true)
         stock_location_scope.first || ActiveRecord::Base.connected_to(role: :writing) do
           stock_location_scope.create(default: true, name: Spree.t(:default_stock_location_name), country: default_country)
         end

@@ -1,6 +1,8 @@
 module Spree
   module Admin
     class BaseController < Spree::BaseController
+      include Spree::Admin::BreadcrumbConcern
+
       layout :choose_layout
 
       helper 'spree/base'
@@ -34,15 +36,19 @@ module Spree
           redirect_to spree.admin_forbidden_path, allow_other_host: true
         else
           store_location
-          if defined?(spree_admin_login_path)
-            redirect_to spree_admin_login_path, allow_other_host: true
-          elsif respond_to?(:spree_login_path)
-            redirect_to spree_login_path, allow_other_host: true
-          elsif spree.respond_to?(:root_path)
-            redirect_to spree.root_path, allow_other_host: true
-          else
-            redirect_to main_app.respond_to?(:root_path) ? main_app.root_path : '/'
-          end
+          try_to_redirect_to_login_path
+        end
+      end
+
+      def try_to_redirect_to_login_path
+        if defined?(spree_admin_login_path)
+          redirect_to spree_admin_login_path, allow_other_host: true
+        elsif respond_to?(:spree_login_path)
+          redirect_to spree_login_path, allow_other_host: true
+        elsif spree.respond_to?(:root_path)
+          redirect_to spree.root_path, allow_other_host: true
+        else
+          redirect_to main_app.respond_to?(:root_path) ? main_app.root_path : '/'
         end
       end
 
@@ -53,6 +59,10 @@ module Spree
           # use Spree::Core::ControllerHelpers::Auth#try_spree_current_user
           super
         end
+      end
+
+      def store_location_session_key
+        "#{Spree.admin_user_class.model_name.singular_route_key.to_sym}_return_to"
       end
 
       def flash_message_for(object, event_sym)
@@ -126,6 +136,12 @@ module Spree
         return 'turbo_rails/frame' if turbo_frame_request?
 
         'spree/admin'
+      end
+
+      def parse_date_param(date_string)
+        return if date_string.blank?
+
+        date_string.to_date&.in_time_zone(current_timezone)
       end
     end
   end

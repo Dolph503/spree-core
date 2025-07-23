@@ -1,10 +1,14 @@
 require 'spec_helper'
 
 RSpec.describe Spree::Admin::StoreCreditsController, type: :controller do
-  stub_authorization!
   render_views
 
+  let(:admin_user) { create(:admin_user) }
   let(:user) { create(:user) }
+
+  before do
+    allow(controller).to receive(:try_spree_current_user).and_return(admin_user)
+  end
 
   describe 'GET #index' do
     let!(:store_credits) { create_list(:store_credit, 3, user: user) }
@@ -17,6 +21,18 @@ RSpec.describe Spree::Admin::StoreCreditsController, type: :controller do
       expect(response).to render_template(:index)
 
       expect(assigns(:store_credits)).to contain_exactly(*store_credits)
+    end
+  end
+
+  describe 'GET #show' do
+    let(:store_credit) { create(:store_credit, user: user) }
+    let!(:store_credit_events) { create_list(:store_credit_auth_event, 3, store_credit: store_credit) }
+
+    it 'renders the store credit show page' do
+      get :show, params: { user_id: user.id, id: store_credit.id }
+
+      expect(response).to be_successful
+      expect(response).to render_template(:show)
     end
   end
 
@@ -43,6 +59,7 @@ RSpec.describe Spree::Admin::StoreCreditsController, type: :controller do
 
       expect(store_credit.amount).to eq(100)
       expect(store_credit.currency).to eq('USD')
+      expect(store_credit.created_by).to eq(admin_user)
     end
 
     context 'when the store credit is not valid' do
@@ -79,7 +96,7 @@ RSpec.describe Spree::Admin::StoreCreditsController, type: :controller do
     it 'updates the store credit' do
       expect { subject }.to change { store_credit.reload.amount }.to(200)
 
-      expect(response).to redirect_to(spree.admin_user_path(user))
+      expect(response).to redirect_to(spree.admin_user_store_credit_path(user, store_credit))
     end
 
     context 'when the store credit is not valid' do

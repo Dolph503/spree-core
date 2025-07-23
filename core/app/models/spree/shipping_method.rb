@@ -39,20 +39,19 @@ module Spree
                       joins(:calculator).where(spree_calculators: { type: Spree::Calculator::Shipping::DigitalDelivery.to_s })
                     }
 
-    if defined?(PgSearch)
-      # full text search
-      include PgSearch::Model
-      pg_search_scope :search_by_name, against: %i[name]
-    else
-      scope :search_by_name, ->(query) { where('name LIKE ?', "%#{query}%") }
-    end
+    scope :search_by_name, ->(query) { where(arel_table[:name].lower.matches("%#{query}%")) }
 
     def include?(address)
+      return true unless requires_zone_check?
       return false unless address
 
       zones.includes(:zone_members).any? do |zone|
         zone.include?(address)
       end
+    end
+
+    def requires_zone_check?
+      !calculator.is_a?(Spree::Calculator::Shipping::DigitalDelivery)
     end
 
     def build_tracking_url(tracking)
@@ -93,7 +92,7 @@ module Spree
       if estimated_transit_business_days_min == estimated_transit_business_days_max
         estimated_transit_business_days_min.to_s
       else
-        "#{estimated_transit_business_days_min}-#{estimated_transit_business_days_max}"
+        [estimated_transit_business_days_min, estimated_transit_business_days_max].compact.join("-")
       end
     end
 

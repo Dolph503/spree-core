@@ -5,8 +5,8 @@
   <% args[:action] = per_page_action %>
 <% end %>
 
-<% if collection.any? && collection.total_pages > 1 %>
-  <div class="py-2 border-top">
+<% if collection.any? && collection.respond_to?(:current_page) %>
+  <div class="pagination-container">
     <div class="index-pagination-row d-flex align-items-center">
       <div class="col-6 col-lg-3">
         <%= per_page_dropdown %>

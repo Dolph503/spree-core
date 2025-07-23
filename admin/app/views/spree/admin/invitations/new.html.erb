@@ -8,12 +8,12 @@
         <%= render 'spree/admin/shared/error_messages', target: @invitation %>
         <div class="form-group">
           <%= f.label :email, Spree.t(:email) %>
-          <%= f.email_field :email, class: 'form-control', required: :required, data: { 'enable-button-target': 'input' }, placeholder: 'eg. steve@apple.com' %>
+          <%= f.email_field :email, class: 'form-control', required: :required, data: { 'enable-button-target': 'input' }, placeholder: 'eg. steve@apple.com', autofocus: true %>
         </div>
         <% if @roles.any? %>
           <div class="form-group">
-            <%= f.label :role, Spree.t(:roles) %>
-            <%= f.select :role_ids, @roles.map { |role| [role.name, role.id] }, {}, { data: { controller: 'autocomplete-select', 'enable-button-target': 'input' }, multiple: true, required: true } %>
+            <%= f.label :role, Spree.t(:role_id) %>
+            <%= f.select :role_id, @roles.map { |role| [role.name, role.id] }, {}, { data: { controller: 'autocomplete-select', 'enable-button-target': 'input' }, required: true } %>
           </div>
         <% end %>
         <div class="form-group">

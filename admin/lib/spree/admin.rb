@@ -4,6 +4,7 @@ require 'spree_api'
 require 'sprockets/railtie'
 
 require 'active_link_to'
+require 'breadcrumbs_on_rails'
 require 'chartkick'
 require 'currency_select'
 require 'groupdate'
@@ -16,8 +17,9 @@ require 'stimulus-rails'
 require 'local_time'
 require 'payment_icons'
 require 'dartsass-rails'
-require 'tinymce-rails'
 
 require 'spree/admin/action_callbacks'
 require 'spree/admin/callbacks'
 require 'spree/admin/engine'
+
+require 'tinymce-rails'

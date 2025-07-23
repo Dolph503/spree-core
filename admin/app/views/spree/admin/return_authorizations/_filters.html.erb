@@ -1,10 +1,10 @@
-<%= search_form_for [:admin, @search], url: spree.admin_return_authorizations_path, class: "filter-wrap", data: {controller: "filters reveal", reveal_hidden_class: "d-none"} do |f| %>
+<%= search_form_for [:admin, @search], url: spree.admin_return_authorizations_path, class: "filter-wrap", data: {controller: "filters"} do |f| %>
   <div class="d-flex flex-column flex-lg-row gap-2">
     <%= render "spree/admin/shared/filters_search_bar", param: :number_cont %>
 
-    <div class="dropdown h-100 mr-2">
+    <div class="dropdown">
       <button
-        class="btn btn-light h-100 dropdown-toggle"
+        class="btn btn-light dropdown-toggle"
         type="button"
         data-toggle="dropdown"
         aria-expanded="false"

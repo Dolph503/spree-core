@@ -1,6 +1,8 @@
 module Spree
   module Admin
     class PromotionsController < ResourceController
+      include PromotionsBreadcrumbConcern
+
       before_action :load_form_data, except: :index
 
       # POST /admin/promotions/:id/clone
@@ -55,6 +57,10 @@ module Spree
         params[:q][:active] = active
 
         @collection
+      end
+
+      def permitted_resource_params
+        params.require(:promotion).permit(permitted_promotion_attributes)
       end
     end
   end

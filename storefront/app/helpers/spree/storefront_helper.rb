@@ -1,14 +1,24 @@
 module Spree
   module StorefrontHelper
     include BaseHelper
+    include Spree::ImagesHelper
+    include Spree::ShipmentHelper
     include Heroicon::Engine.helpers
 
+    # Renders the storefront partials for the given section.
+    #
+    # @param section [String] The section to render
+    # @param options [Hash] The options/variables to pass to the partials
+    # @return [String] The rendered partials
     def render_storefront_partials(section, options = {})
       Rails.application.config.spree_storefront.send(section).map do |partial|
         render partial, options
       end.join.html_safe
     end
 
+    # Returns the page description for the current page.
+    #
+    # @return [String] The page description
     def page_description
       return @page_description if @page_description.present?
 
@@ -23,6 +33,10 @@ module Spree
       @page_description
     end
 
+    # Returns the page image for the current page.
+    # This is used for SEO, social media and Open Graph tags.
+    #
+    # @return [String] The page image
     def page_image
       return @page_image if @page_image.present?
 
@@ -52,15 +66,23 @@ module Spree
     end
 
     def svg_country_icon(country_code)
-      country_code = :us if country_code.to_s.downcase == 'en'
-      tag.span(class: "fi fi-#{country_code.downcase}")
+      language_to_country = {
+        'en' => 'us',
+        'ja' => 'jp',
+        'uk' => 'ua'
+      }
+
+      normalized_code = country_code.to_s.downcase
+      final_country_code = language_to_country.fetch(normalized_code, normalized_code)
+
+      tag.span(class: "fi fi-#{final_country_code}")
     end
 
     def show_account_pane?
       !try_spree_current_user &&
-        (defined?(spree_login_path) && !paths_equal?(canonical_path, spree_login_path)) &&
-        (defined?(spree_signup_path) && !paths_equal?(canonical_path, spree_signup_path)) &&
-        (defined?(spree_forgot_password_path) && !paths_equal?(canonical_path, spree_forgot_password_path))
+        defined?(spree_login_path) && !paths_equal?(canonical_path, spree_login_path) &&
+        defined?(spree_signup_path) && !paths_equal?(canonical_path, spree_signup_path) &&
+        defined?(spree_forgot_password_path) && !paths_equal?(canonical_path, spree_forgot_password_path)
     end
 
     def paths_equal?(path1, path2)

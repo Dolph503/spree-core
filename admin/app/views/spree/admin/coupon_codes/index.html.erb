@@ -1,5 +1,11 @@
 <%= render 'spree/admin/promotions/header' %>
 
+<% content_for :page_actions do %>
+  <%= render_admin_partials(:coupon_codes_actions_partials) %>
+<% end %>
+
+<%= render_admin_partials(:coupon_codes_header_partials) %>
+
 <div class="row">
   <div class="col-12 col-lg-8">
     <div class="card-lg">
@@ -8,8 +14,8 @@
           <%= render 'spree/admin/shared/filters_search_bar', param: :code_eq %>
 
           <div class="d-flex align-items-center justify-content-between">
-            <div class="dropdown h-100">
-              <button class="btn btn-light h-100 dropdown-toggle" type="button" data-toggle="dropdown" data-display="static" data-flip="false" aria-expanded="false">
+            <div class="dropdown">
+              <button class="btn btn-light dropdown-toggle" type="button" data-toggle="dropdown" data-display="static" data-flip="false" aria-expanded="false">
                 <span class="text-muted font-weight-normal mr-1">
                   <%= Spree.t(:show) %>
                 </span>
@@ -19,14 +25,14 @@
               </button>
               <div class="dropdown-menu w-100 font-size-sm" style="min-width: 200px">
                 <%= active_link_to Spree.t(:all),
-                  spree.admin_promotion_coupon_codes_path,
+                  spree.admin_promotion_coupon_codes_path(@promotion),
                   class: 'dropdown-item',
                   active: (params[:q] || {}).values_at(:state_eq).all?(&:blank?) %>
                 <%= link_to Spree.t('admin.coupon_codes.used'),
-                  params.merge({q: {state_eq: :used}}).permit!,
+                  spree.admin_promotion_coupon_codes_path(@promotion, q: {state_eq: :used}),
                   class: "dropdown-item #{'active' if params.dig(:q, :state_eq) == 'used'}" %>
                 <%= link_to Spree.t('admin.coupon_codes.unused'),
-                  params.merge({q: {state_eq: :unused}}).permit!,
+                  spree.admin_promotion_coupon_codes_path(@promotion, q: {state_eq: :unused}),
                   class: "dropdown-item #{'active' if params.dig(:q, :state_eq) == 'unused'}" %>
               </div>
             </div>

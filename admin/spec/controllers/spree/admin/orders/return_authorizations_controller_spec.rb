@@ -37,7 +37,8 @@ RSpec.describe Spree::Admin::Orders::ReturnAuthorizationsController do
           return_items_attributes: {
             0 => {
               inventory_unit_id: order.inventory_units.shipped.first.id,
-              pre_tax_amount: 10
+              pre_tax_amount: 10,
+              preferred_reimbursement_type_id: reimbursement_type.id
             }
           }
         }
@@ -53,6 +54,7 @@ RSpec.describe Spree::Admin::Orders::ReturnAuthorizationsController do
       expect(return_auth.memo).to eq 'Test memo'
       expect(return_auth.return_items.count).to eq 1
       expect(return_auth.return_items.first.pre_tax_amount).to eq 10
+      expect(return_auth.return_items.first.preferred_reimbursement_type).to eq reimbursement_type
     end
 
     it 'redirects to the edit page of the return authorization' do
@@ -80,7 +82,11 @@ RSpec.describe Spree::Admin::Orders::ReturnAuthorizationsController do
 
   describe '#update' do
     subject do
-      put :update, params: {
+      put :update, params: params
+    end
+
+    let(:params) do
+      {
         order_id: order.number,
         id: return_authorization.id,
         return_authorization: {
@@ -106,6 +112,22 @@ RSpec.describe Spree::Admin::Orders::ReturnAuthorizationsController do
     it 'redirects to the edit page of the return authorization' do
       subject
       expect(response).to redirect_to(spree.edit_admin_order_path(order))
+    end
+
+    context 'when _destroy is set to true' do
+      let(:params) do
+        {
+          order_id: order.number,
+          id: return_authorization.id,
+          return_authorization: { return_items_attributes: { '0' => { id: return_item.id, _destroy: true } } }
+        }
+      end
+
+      it 'can destroy return items' do
+        subject
+        expect(return_authorization.return_items.count).to eq 0
+        expect(Spree::ReturnItem.find_by(id: return_item.id)).to be_nil
+      end
     end
   end
 

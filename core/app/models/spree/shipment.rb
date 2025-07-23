@@ -221,8 +221,30 @@ module Spree
       inventory_units.where(line_item_id: line_item.id, variant_id: line_item.variant_id || variant.id)
     end
 
+    # Returns the total quantity of all line items in the shipment
+    def item_quantity
+      manifest.sum(&:quantity)
+    end
+
+    # Returns the cost of the shipment
+    #
+    # @return [BigDecimal]
     def item_cost
       manifest.map { |m| (m.line_item.price + (m.line_item.adjustment_total / m.line_item.quantity)) * m.quantity }.sum
+    end
+
+    # Returns the weight of the shipment
+    #
+    # @return [BigDecimal]
+    def item_weight
+      manifest.map { |m| m.line_item.item_weight }.sum
+    end
+
+    # Returns the weight unit of the shipment
+    #
+    # @return [String]
+    def weight_unit
+      manifest.first.line_item.weight_unit
     end
 
     def line_items
@@ -416,6 +438,8 @@ module Spree
     end
 
     def can_get_rates?
+      return true unless order.requires_ship_address?
+
       order.ship_address&.valid?
     end
 
@@ -430,7 +454,7 @@ module Spree
     end
 
     def manifest_unstock(item)
-      stock_location.unstock item.variant, item.quantity, self
+      stock_location.unstock(item.variant, item.quantity, self) if item.variant.track_inventory?
     end
 
     def recalculate_adjustments

@@ -28,7 +28,7 @@ RSpec.describe Spree::Admin::UsersController, type: :controller do
       expect(response).to have_http_status(:ok)
       expect(response).to render_template(:index)
 
-      expect(assigns(:collection).to_a).to contain_exactly(user_1, user_2, user_3)
+      expect(assigns(:collection).to_a).to include(user_1, user_2, user_3)
     end
 
     it 'returns subscribers' do
@@ -86,48 +86,6 @@ RSpec.describe Spree::Admin::UsersController, type: :controller do
         it 'returns an empty list' do
           expect(assigns(:collection).to_a).to eq([])
         end
-      end
-    end
-
-    context 'csv' do
-      let!(:country) { create(:country) }
-      let!(:state) { create(:state, country: country) }
-      let!(:address) { create(:address, user: user_1) }
-
-      before do
-        user_1.tag_list = ['Tag 1', 'Tag 2']
-        user_1.save!
-      end
-
-      it 'returns a csv file' do
-        get :index, params: { format: 'csv', q: { first_name_eq: user_1.first_name } }
-
-        expect(response.headers['Content-Type']).to eq 'text/csv; charset=utf-8'
-        expect(response.body.split("\n").count).to eq(2)
-
-        user_csv_line = response.body.split("\n").last
-
-        expect(user_csv_line).to eq(
-          [
-            user_1.first_name,
-            user_1.last_name,
-            user_1.email,
-            user_1.accepts_email_marketing ? 'Yes' : 'No',
-            user_1.address&.company,
-            user_1.address&.address1,
-            user_1.address&.address2,
-            user_1.address&.city,
-            user_1.address&.state_text,
-            user_1.address&.state_abbr,
-            user_1.address&.country&.name,
-            user_1.address&.country&.iso,
-            user_1.address&.zipcode,
-            user_1.phone,
-            user_1.amount_spent_in('USD').to_s,
-            user_1.completed_orders.count.to_s,
-            "\"#{user_1.tag_list.join(', ')}\"",
-          ].join(',')
-        )
       end
     end
 

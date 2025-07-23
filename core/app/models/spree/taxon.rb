@@ -1,4 +1,3 @@
-# TODO: let friendly id take care of sanitizing the url
 require 'stringex'
 
 module Spree
@@ -18,9 +17,12 @@ module Spree
     include Spree::TranslatableResource
     include Spree::TranslatableResourceSlug
     include Spree::Metadata
+    include Spree::MemoizedData
     if defined?(Spree::Webhooks::HasWebhooks)
       include Spree::Webhooks::HasWebhooks
     end
+
+    MEMOIZED_METHODS = %w[cached_self_and_descendants_ids].freeze
 
     #
     # Magic methods
@@ -96,9 +98,11 @@ module Spree
       if Spree.use_translations?
         joins(:taxonomy).
           join_translation_table(Taxonomy).
-          where(["LOWER(#{Taxonomy.translation_table_alias}.name) = ?", taxonomy_name.downcase.strip])
+          where(
+            Taxonomy.arel_table_alias[:name].lower.matches(taxonomy_name.downcase.strip)
+          )
       else
-        joins(:taxonomy).where(["LOWER(#{Spree::Taxonomy.table_name}.name) = ?", taxonomy_name.downcase.strip])
+        joins(:taxonomy).where(Spree::Taxonomy.arel_table[:name].lower.matches(taxonomy_name.downcase.strip))
       end
     }
 
@@ -151,6 +155,10 @@ module Spree
 
     def manual_sort_order?
       sort_order == 'manual'
+    end
+
+    def page_builder_image
+      square_image.presence || image
     end
 
     def active_products_with_descendants
@@ -367,7 +375,7 @@ module Spree
     end
 
     def cached_self_and_descendants_ids
-      Rails.cache.fetch("#{cache_key_with_version}/descendant-ids") do
+      @cached_self_and_descendants_ids ||= Rails.cache.fetch("#{cache_key_with_version}/descendant-ids") do
         self_and_descendants.ids
       end
     end

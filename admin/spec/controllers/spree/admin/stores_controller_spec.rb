@@ -6,11 +6,15 @@ describe Spree::Admin::StoresController do
 
   let(:store) { create(:store) }
   let(:user) { create(:admin_user) }
+  let(:user2) { create(:admin_user) }
   let!(:uk_country) { create(:country, iso: 'GB', iso3: 'GBR', name: 'United Kingdom') }
 
   before do
     allow(controller).to receive(:current_store).and_return(store)
     allow(controller).to receive(:try_spree_current_user).and_return(user)
+
+    store.add_user(user)
+    store.add_user(user2)
   end
 
   describe 'POST #create' do
@@ -26,7 +30,8 @@ describe Spree::Admin::StoresController do
     end
 
     it 'creates a new store' do
-      expect { subject }.to change(Spree::Store, :count).by(1)
+      expect(store.users).to contain_exactly(user, user2)
+      expect { subject }.to change(Spree::Store, :count).by(1).and change(Spree::RoleUser, :count).by(2)
 
       expect(flash[:success]).to match('has been successfully created')
 
@@ -35,13 +40,7 @@ describe Spree::Admin::StoresController do
       expect(new_store.default_currency).to eq('GBR')
       expect(new_store.default_country).to eq(uk_country)
       expect(new_store.default_locale).to eq('en')
-    end
-
-    it 'adds the current user to the store' do
-      expect { subject }.to change(Spree::ResourceUser, :count).by(1)
-
-      new_store = Spree::Store.last
-      expect(new_store.users).to include(user)
+      expect(new_store.users).to contain_exactly(user, user2)
     end
   end
 
@@ -53,7 +52,10 @@ describe Spree::Admin::StoresController do
         name: 'New Store Name',
         default_currency: 'GBR',
         default_country_iso: 'GB',
-        default_locale: 'pl'
+        default_locale: 'pl',
+        preferred_timezone: 'Europe/Warsaw',
+        preferred_weight_unit: 'kg',
+        preferred_unit_system: 'metric'
       }
     end
 
@@ -70,6 +72,10 @@ describe Spree::Admin::StoresController do
       expect(store.default_currency).to eq('GBR')
       expect(store.default_country).to eq(uk_country)
       expect(store.default_locale).to eq('pl')
+
+      expect(store.preferred_timezone).to eq('Europe/Warsaw')
+      expect(store.preferred_weight_unit).to eq('kg')
+      expect(store.preferred_unit_system).to eq('metric')
     end
 
     context 'when removing assets' do

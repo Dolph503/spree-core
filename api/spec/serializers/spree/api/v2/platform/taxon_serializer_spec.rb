@@ -8,6 +8,7 @@ describe Spree::Api::V2::Platform::TaxonSerializer do
   let(:taxonomy) { create(:taxonomy, store: store) }
   let(:taxon) { create(:taxon, :with_description, taxonomy: taxonomy, products: create_list(:product, 2, stores: [store])) }
   let!(:children) { create_list(:taxon, 2, taxonomy: taxonomy, parent: taxon) }
+  let(:url_helpers) { Rails.application.routes.url_helpers }
 
   context 'without products' do
     it do
@@ -37,7 +38,7 @@ describe Spree::Api::V2::Platform::TaxonSerializer do
               automatic: taxon.automatic?,
               sort_order: taxon.sort_order,
               rules_match_policy: taxon.rules_match_policy,
-              header_url: taxon.image.attachment&.url,
+              header_url: nil,
               public_metadata: {},
               private_metadata: {}
             },
@@ -111,7 +112,7 @@ describe Spree::Api::V2::Platform::TaxonSerializer do
               automatic: taxon.automatic?,
               sort_order: taxon.sort_order,
               rules_match_policy: taxon.rules_match_policy,
-              header_url: taxon.image.attachment&.url,
+              header_url: nil,
               public_metadata: {},
               private_metadata: {}
             },
@@ -162,6 +163,14 @@ describe Spree::Api::V2::Platform::TaxonSerializer do
           }
         }
       )
+    end
+  end
+
+  context 'with header image' do
+    let(:taxon) { create(:taxon, :with_header_image, taxonomy: taxonomy) }
+
+    it do
+      expect(subject[:data][:attributes][:header_url]).to eq(url_helpers.cdn_image_url(taxon.image.attachment))
     end
   end
 

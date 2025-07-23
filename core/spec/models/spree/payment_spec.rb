@@ -165,6 +165,13 @@ describe Spree::Payment, type: :model do
         payment.source = nil
         expect(payment).not_to be_valid
       end
+
+      context 'when skip_source_requirement is set to true' do
+        it 'does not validate source presence' do
+          payment.skip_source_requirement = true
+          expect(payment).to be_valid
+        end
+      end
     end
 
     it 'returns useful error messages when source is invalid' do
@@ -218,6 +225,31 @@ describe Spree::Payment, type: :model do
       context 'when voiding a payment' do
         it 'updates the order' do
           expect { payment.void! }.to change { order.payment_total }.by(-payment.amount)
+        end
+      end
+    end
+
+    describe '#create_payment_profile' do
+      context 'when payment method supports profiles' do
+        context 'when source is a credit card' do
+          let(:source) { create(:credit_card) }
+          let(:payment) { build(:payment, source: source) }
+
+          it 'creates a payment profile' do
+            expect { payment.save! }.to change { source.gateway_customer_profile_id }.from(nil).to(/BGS-/)
+          end
+        end
+
+        context 'when source is not a credit card' do
+          let(:user) { create(:user) }
+          let(:order) { create(:order, user: user, total: 100) }
+          let(:gateway) { create(:custom_payment_method) }
+          let(:source) { create(:payment_source, user: user, payment_method: gateway) }
+          let(:payment) { build(:custom_payment, source: source, amount: 100, payment_method: gateway) }
+
+          it 'creates a payment profile' do
+            expect { payment.save! }.to change { source.gateway_customer_profile_id }.from(nil).to("CUSTOMER-#{user.id}")
+          end
         end
       end
     end

@@ -10,6 +10,7 @@ Capybara.configure do |config|
   config.match = :smart
   config.ignore_hidden_elements = true
 end
+Capybara.test_id = 'data-test-id'
 
 if ENV['WEBDRIVER'] == 'accessible'
   require 'capybara/accessible'
@@ -20,7 +21,7 @@ Capybara.register_driver :selenium_chrome_headless do |app|
   options = ::Selenium::WebDriver::Chrome::Options.new
   options.add_argument '--headless'
   options.add_argument '--disable-gpu'
-  options.add_argument '--window-size=1400,900'
+  options.add_argument '--window-size=1440,900'
   options.add_argument '--disable-search-engine-choice-screen'
 
   # Disable timers being throttled in background pages/tabs. Useful for parallel test runs.

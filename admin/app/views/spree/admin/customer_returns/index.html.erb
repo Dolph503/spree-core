@@ -6,16 +6,14 @@
   <%= Spree.t(:customer_returns) %>
 <% end %>
 
+<% content_for :page_actions do %>
+  <%= render_admin_partials(:customer_returns_actions_partials) %>
+<% end %>
+
+<%= render_admin_partials(:customer_returns_header_partials) %>
+
 <div class="card-lg">
-  <%= search_form_for [:admin, @search], url: spree.admin_customer_returns_path, class: "filter-wrap", data: {controller: "filters reveal", reveal_hidden_class: "d-none"} do |f| %>
-    <%= render "spree/admin/shared/filters_search_bar",
-    param: :number_cont,
-    label: Spree.t(:number) %>
-
-    <%= render "spree/admin/shared/filter_badge_template" %>
-
-    <div data-filters-target="badgesContainer" class="filter-badges-container"></div>
-  <% end %>
+  <%= render 'filters' %>
 
   <% if @collection.any? %>
     <div class="table-responsive">

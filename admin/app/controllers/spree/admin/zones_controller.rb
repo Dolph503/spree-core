@@ -1,6 +1,7 @@
 module Spree
   module Admin
     class ZonesController < ResourceController
+      add_breadcrumb Spree.t(:zones), :admin_zones_path
       before_action :load_data, except: :index
 
       def new
@@ -31,6 +32,10 @@ module Spree
         @countries = Country.order(:name)
         @states = @selected_country&.states&.order(:name) || Spree::State.none
         @zones = Zone.order(:name)
+      end
+
+      def permitted_resource_params
+        params.require(:zone).permit(permitted_zone_attributes)
       end
     end
   end

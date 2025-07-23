@@ -24,29 +24,6 @@ describe Spree::Core::ControllerHelpers::Auth, type: :controller do
     end
   end
 
-  describe '#redirect_back_or_default' do
-    controller(FakesController) do
-      def index
-        redirect_back_or_default('/')
-      end
-    end
-
-    it 'redirects to session url' do
-      session[:spree_user_return_to] = '/redirect'
-      get :index
-      expect(response).to redirect_to('/redirect')
-    end
-    it 'redirects to HTTP_REFERER' do
-      request.env['HTTP_REFERER'] = '/dummy_redirect'
-      get :index
-      expect(response).to redirect_to('/dummy_redirect')
-    end
-    it 'redirects to default page' do
-      get :index
-      expect(response).to redirect_to('/')
-    end
-  end
-
   describe '#set_token' do
     controller(FakesController) do
       def index
@@ -74,7 +51,7 @@ describe Spree::Core::ControllerHelpers::Auth, type: :controller do
     it 'sets session return url' do
       allow(controller).to receive_messages(request: double(fullpath: '/redirect'))
       controller.store_location
-      expect(session[:spree_user_return_to]).to eq '/redirect'
+      expect(session[:legacy_user_return_to]).to eq '/redirect'
     end
   end
 

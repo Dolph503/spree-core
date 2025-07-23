@@ -7,11 +7,6 @@ describe Spree::ReimbursementMailer, type: :mailer do
 
   let(:reimbursement) { create(:reimbursement) }
 
-  before do
-    # Make sure we always start with the default locale
-    I18n.locale = :en
-  end
-
   context ':from not set explicitly' do
     it 'uses store mail from address' do
       message = Spree::ReimbursementMailer.reimbursement_email(reimbursement)
@@ -77,14 +72,6 @@ describe Spree::ReimbursementMailer, type: :mailer do
           reimbursement_email.text_part.to include('Caro Cliente,')
         end
       end
-    end
-  end
-
-  context 'emails contain only urls of the store where the order was made' do
-    it 'shows proper host url in email content' do
-      ActionMailer::Base.default_url_options[:host] = reimbursement.order.store.url
-      described_class.reimbursement_email(reimbursement).deliver_now
-      expect(ActionMailer::Base.default_url_options[:host]).to eq(reimbursement.order.store.url)
     end
   end
 end

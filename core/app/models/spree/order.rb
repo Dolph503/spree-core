@@ -4,12 +4,15 @@ require_dependency 'spree/order/digital'
 require_dependency 'spree/order/payments'
 require_dependency 'spree/order/store_credit'
 require_dependency 'spree/order/emails'
+require_dependency 'spree/order/gift_card'
 
 module Spree
   class Order < Spree.base_class
     PAYMENT_STATES = %w(balance_due credit_owed failed paid void)
     SHIPMENT_STATES = %w(backorder canceled partial pending ready shipped)
     LINE_ITEM_REMOVABLE_STATES = %w(cart address delivery payment confirm resumed)
+
+    extend Spree::DisplayMoney
 
     include Spree::Order::Checkout
     include Spree::Order::CurrencyUpdater
@@ -20,6 +23,7 @@ module Spree
     include Spree::Order::Emails
     include Spree::Order::Webhooks
     include Spree::Core::NumberGenerator.new(prefix: 'R')
+    include Spree::Order::GiftCard
 
     include Spree::NumberIdentifier
     include Spree::NumberAsParam
@@ -38,7 +42,6 @@ module Spree
 
     MEMOIZED_METHODS = %w(tax_zone)
 
-    extend Spree::DisplayMoney
     money_methods :outstanding_balance, :item_total,           :adjustment_total,
                   :included_tax_total,  :additional_tax_total, :tax_total,
                   :shipment_total,      :promo_total,          :total,
@@ -249,6 +252,13 @@ module Spree
       pre_tax_item_amount + shipments.sum(:pre_tax_amount)
     end
 
+    # Returns the subtotal used for analytics integrations
+    # It's a sum of the item total and the promo total
+    # @return [Float]
+    def analytics_subtotal
+      (item_total + line_items.sum(:promo_total)).to_f
+    end
+
     def shipping_discount
       shipment_adjustments.non_tax.eligible.sum(:amount) * - 1
     end
@@ -306,8 +316,26 @@ module Spree
       shipments.any?(&:backordered?)
     end
 
+    # Check if the shipping address is a quick checkout address
+    # quick checkout addresses are incomplete as wallet providers like Apple Pay and Google Pay
+    # do not provide all the address fields until the checkout is completed (confirmed) on their side
+    # @return [Boolean]
     def quick_checkout?
       shipping_address.present? && shipping_address.quick_checkout?
+    end
+
+    # Check if quick checkout is available for this order
+    # Either fully digital or not digital at all
+    # @return [Boolean]
+    def quick_checkout_available?
+      payment_required? && shipments.count <= 1 && (digital? || !some_digital? || !delivery_required?)
+    end
+
+    # Check if quick checkout requires an address collection
+    # If the order is digital or not delivery required, then we don't need to collect an address
+    # @return [Boolean]
+    def quick_checkout_require_address?
+      !digital? && delivery_required?
     end
 
     # Returns the relevant zone (if any) to be used for taxation purposes.
@@ -451,6 +479,7 @@ module Spree
     # @return [Array<Spree::Variant>] the backordered variants for the order
     def backordered_variants
       variants.
+        where(track_inventory: true).
         joins(:stock_items, :product).
         where(Spree::StockItem.table_name => { count_on_hand: ..0, backorderable: true })
     end
@@ -623,7 +652,7 @@ module Spree
     #
     # @return [BigDecimal] the total weight of the inventory units in the order
     def total_weight
-      @total_weight ||= line_items.joins(:variant).includes(:variant).map { |li| li.variant.weight * li.quantity }.sum
+      @total_weight ||= line_items.joins(:variant).includes(:variant).map(&:item_weight).sum
     end
 
     # Returns line items that have no shipping rates
@@ -734,6 +763,11 @@ module Spree
     end
 
     def can_be_destroyed?
+      Spree::Deprecation.warn('Spree::Order#can_be_destroyed? is deprecated and will be removed in the next major version. Use Spree::Order#can_be_deleted? instead.')
+      can_be_deleted?
+    end
+
+    def can_be_deleted?
       !completed? && payments.completed.empty?
     end
 
@@ -822,6 +856,14 @@ module Spree
       csv_lines
     end
 
+    def all_line_items
+      line_items
+    end
+
+    def requires_ship_address?
+      !digital?
+    end
+
     private
 
     def link_by_email
@@ -858,10 +900,15 @@ module Spree
 
     def after_cancel
       shipments.each(&:cancel!)
-      payments.completed.each(&:cancel!)
 
-      # Free up authorized store credits
-      payments.store_credits.pending.each(&:void!)
+      # payments fully covered by gift card won't be refunded
+      # we want to only void the payment
+      if gift_card.present? && covered_by_store_credit?
+        payments.completed.store_credits.each(&:void!)
+      else
+        payments.completed.each(&:cancel!)
+        payments.store_credits.pending.each(&:void!)
+      end
 
       send_cancel_email
       update_with_updater!
@@ -883,7 +930,7 @@ module Spree
     end
 
     def ensure_currency_presence
-      self.currency ||= store.default_currency
+      self.currency ||= store&.default_currency
     end
 
     def collect_payment_methods(store = nil)
@@ -898,6 +945,16 @@ module Spree
 
     def credit_card_nil_payment?(attributes)
       payments.store_credits.present? && attributes[:amount].to_f.zero?
+    end
+
+    def recalculate_store_credit_payment
+      updater.update_adjustment_total if using_store_credit?
+
+      if gift_card.present?
+        recalculate_gift_card
+      elsif using_store_credit?
+        Spree::Dependencies.checkout_add_store_credit_service.constantize.call(order: self)
+      end
     end
   end
 end

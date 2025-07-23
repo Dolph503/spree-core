@@ -10,15 +10,25 @@ module Spree
       end
 
       def enterprise_edition?
-        defined?(Vendo)
+        defined?(SpreeEnterprise)
       end
 
+      # @return [Spree::Admin::Updater] the spree updater
       def spree_updater
         @spree_updater ||= Spree::Admin::Updater
       end
 
       def spree_update_available?
         @spree_update_available ||= !Rails.env.test? && spree_updater.update_available?
+      end
+
+      def updater_notice_dismissed?
+        dismissal_data = session[:spree_updater_notice_dismissed]
+        dismissal_data.is_a?(Hash) && dismissal_data['expires_at'].to_time > Time.current
+      end
+
+      def show_spree_updater_notice?
+        Spree::Admin::RuntimeConfig.admin_updater_enabled && can?(:manage, current_store) && spree_update_available? && !updater_notice_dismissed?
       end
 
       # check if the current controller is a settings controller
@@ -233,14 +243,65 @@ module Spree
         end
       end
 
-      def spree_dom_id(record)
-        dom_id(record, 'spree')
-      end
-
       # renders a red dot with a * to indicate that a field is required
       # @return [String] the required span tag
       def required_span_tag
         content_tag(:span, ' *', class: 'required font-weight-bold text-danger')
+      end
+
+      # renders a clipboard button
+      # @param options [Hash] the options for the button
+      # @option options [String] :class the CSS class(es) of the button
+      # @option options [Hash] :data the data attributes for the button
+      # @option options [String] :title the title of the button
+      # @return [String] the button
+      def clipboard_button(options = {})
+        options[:class] ||= 'btn btn-clipboard with-tip'
+        options[:type] ||= 'button'
+        options[:data] ||= {}
+        options[:data][:action] = 'clipboard#copy'
+        options[:data][:clipboard_target] = 'button'
+        options[:data][:title] = Spree.t('admin.copy_to_clipboard')
+        options[:aria_label] ||= Spree.t('admin.copy_to_clipboard') # screen-reader label
+
+        content_tag(:button, options) do
+          icon('copy', class: 'mr-0 font-size-sm')
+        end
+      end
+
+      # renders a clipboard component
+      # @param text [String] the text to copy
+      # @param options [Hash] the options for the component
+      # @option options [String] :class the CSS class(es) of the component
+      # @option options [Hash] :data the data attributes for the component
+      # @option options [String] :title the title of the component
+      # @return [String] the component
+      def clipboard_component(text, options = {})
+        options[:data] ||= {}
+        options[:data][:controller] = 'clipboard'
+        options[:data][:clipboard_success_content_value] ||= raw(icon('check', class: 'mr-0 font-size-sm'))
+
+        content_tag(:span, data: options[:data]) do
+          hidden_field_tag(:clipboard_source, text, data: { clipboard_target: 'source' }) +
+            clipboard_button
+        end
+      end
+
+      # renders a progress bar component
+      # @param options [Hash] the options for the component
+      # @param value [Integer] the value of the progress bar
+      # @option options [Integer] :min the minimum value of the progress bar
+      # @option options [Integer] :max the maximum value of the progress bar
+      # @return [String] the component
+      def progress_bar_component(value, options = {})
+        min = options[:min] || 0
+        max = options[:max] || 100
+        percentage = (value.to_f / max * 100).round
+
+        content_tag(:div, class: 'progress') do
+          content_tag(:div, { class: 'progress-bar', role: 'progressbar', style: "width: #{percentage}%", aria: { valuenow: value, valuemin: min, valuemax: max } }) do
+          end
+        end
       end
 
       # returns the allowed file types for upload, according to the active storage configuration

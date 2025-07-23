@@ -28,7 +28,7 @@ Gem::Specification.new do |s|
 
   s.add_development_dependency 'i18n-tasks'
 
-  s.add_dependency 'rails', '>= 7.2', '< 8.0'
+  s.add_dependency 'rails', '>= 7.2', '< 8.1'
 
   s.add_dependency 'activemerchant', '~> 1.67'
   s.add_dependency 'acts_as_list', '>= 0.8'
@@ -49,18 +49,20 @@ Gem::Specification.new do |s|
   s.add_dependency 'ransack', '>= 4.1'
   s.add_dependency 'rexml'
   s.add_dependency 'ruby-oembed', '~> 0.18'
-  s.add_dependency 'state_machines-activerecord', '~> 0.6'
-  s.add_dependency 'state_machines-activemodel', '~> 0.7'
+  s.add_dependency 'state_machines-activerecord', '~> 0.10'
+  s.add_dependency 'state_machines-activemodel', '~> 0.10'
   s.add_dependency 'stringex'
   s.add_dependency 'tracking_number'
   s.add_dependency 'validates_zipcode'
   s.add_dependency 'image_processing', '~> 1.2'
   s.add_dependency 'active_storage_validations', '1.3.0'
-  s.add_dependency 'mobility', '~> 1.2'
+  s.add_dependency 'mobility', '~> 1.3', '>= 1.3.2'
   s.add_dependency 'mobility-ransack', '~> 1.2'
   s.add_dependency 'mobility-actiontext', '~> 1.1'
   s.add_dependency 'friendly_id-mobility', '~> 1.0'
   s.add_dependency 'request_store', '~> 1.7'
   s.add_dependency 'wannabe_bool'
   s.add_dependency 'any_ascii', '~> 0.3.2'
+  s.add_dependency 'safely_block', '~> 0.4'
+  s.add_dependency 'phonelib', '~> 0.10'
 end

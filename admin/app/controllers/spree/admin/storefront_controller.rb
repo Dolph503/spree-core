@@ -1,6 +1,9 @@
 module Spree
   module Admin
     class StorefrontController < BaseController
+      include StorefrontBreadcrumbConcern
+      add_breadcrumb Spree.t(:settings), :edit_admin_storefront_path
+
       def edit
         @store = current_store
       end
@@ -26,7 +29,7 @@ module Spree
           :meta_description, :meta_title, :meta_keywords, :seo_robots,
           :facebook, :twitter, :instagram, :linkedin, :youtube, :tiktok, :pinterest,
           :storefront_custom_code_head, :storefront_custom_code_body_start,
-          :storefront_custom_code_body_end, :storefront_password
+          :storefront_custom_code_body_end, :storefront_password, :spotify, :discord
         )
       end
 

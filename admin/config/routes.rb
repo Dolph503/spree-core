@@ -54,15 +54,15 @@ Spree::Core::Engine.add_routes do
 
     # orders
     resources :checkouts, only: %i[index]
-    resources :orders, only: [:index, :edit, :create] do
+    resources :orders, only: [:index, :edit, :create, :destroy] do
       member do
         post :resend
         put :cancel
       end
-      resource :shipping_address, except: [:index, :show], controller: 'orders/shipping_address'
-      resource :billing_address, except: [:index, :show], controller: 'orders/billing_address'
+      resource :shipping_address, except: [:show], controller: 'orders/shipping_address'
+      resource :billing_address, except: [:show], controller: 'orders/billing_address'
       resource :contact_information, only: [:edit, :update], controller: 'orders/contact_information'
-      resource :user, except: [:edit, :show, :index], controller: 'orders/user'
+      resource :user, except: [:edit, :show], controller: 'orders/user'
       resources :shipments, only: [:edit, :update, :create], controller: 'shipments' do
         member do
           post :ship
@@ -97,6 +97,7 @@ Spree::Core::Engine.add_routes do
       resources :store_credits
       resources :orders, only: [:index]
       resources :checkouts, only: [:index]
+      resources :gift_cards
 
       collection do
         get :bulk_modal
@@ -116,7 +117,12 @@ Spree::Core::Engine.add_routes do
       resources :promotion_rules, as: :rules, except: [:index, :show]
       resources :coupon_codes, only: :index
     end
-    get 'promotion_rules/option_values_search', defaults: { format: :json }
+    get 'search/option_values', defaults: { format: :json }, to: 'search#option_values'
+
+    # gift cards
+    resources :gift_cards
+    # gift card batches
+    resources :gift_card_batches, only: [:new, :create]
 
     # returns
     resources :return_authorizations, only: [:index, :destroy] do
@@ -148,7 +154,7 @@ Spree::Core::Engine.add_routes do
     end
     # setting up a new store
     resources :stores, only: [:new, :create] do
-      resources :resource_users, only: [:destroy]
+      resources :role_users, only: [:destroy]
     end
     resources :payment_methods, except: :show
     resources :shipping_methods, except: :show
@@ -243,7 +249,8 @@ Spree::Core::Engine.add_routes do
     resource :dashboard, controller: 'dashboard'
     get '/dashboard/analytics', to: 'dashboard#analytics', as: :dashboard_analytics
     get '/getting-started', to: 'dashboard#getting_started', as: :getting_started
-    get '/dismiss_enterprise_edition_notice', to: 'dashboard#dismiss_enterprise_edition_notice', as: :dismiss_enterprise_edition_notice
+    patch '/dismiss_enterprise_edition_notice', to: 'dashboard#dismiss_enterprise_edition_notice', as: :dismiss_enterprise_edition_notice
+    patch '/dismiss_updater_notice', to: 'dashboard#dismiss_updater_notice', as: :dismiss_updater_notice
 
     root to: 'dashboard#show'
   end

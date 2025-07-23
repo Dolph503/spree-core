@@ -21,11 +21,15 @@ module Spree
     end
 
     def weeks_online(product)
+      Spree::Deprecation.warn('weeks_online is deprecated and will be removed in Spree 5.2')
+
       (Time.current - product.activated_at.in_time_zone(current_store.preferred_timezone)).seconds.in_weeks.to_i.abs
     end
 
     def brand_name(product)
-      product.brand&.name || product.vendor&.display_name
+      Spree::Deprecation.warn('brand_name is deprecated and will be removed in Spree 5.2. Please use `product.brand_name` instead.')
+
+      product.brand&.name || product.try(:vendor)&.display_name
     end
 
     def product_not_selected_options(product, selected_variant, options_param_name: :options)
@@ -152,16 +156,24 @@ module Spree
       product.main_taxon.self_and_ancestors.find_all { |taxon| taxon.depth != 0 }
     end
 
+    # Generates the JSON-LD elements for a list of products.
+    #
+    # @param product_slugs [Array<String>] The slugs of the products to generate elements for
+    # @return [Array<Hash>] The JSON-LD elements
     def product_list_json_ld_elements(product_slugs)
       product_slugs.each_with_index.map do |product_slug, index|
         {
           '@type' => 'ListItem',
           'position' => index + 1,
-          'url' => spree.product_url(product_slug)
+          'url' => spree.product_url(product_slug, host: current_store.url_or_custom_domain)
         }
       end
     end
 
+    # Generates the JSON-LD breadcrumbs for a product.
+    #
+    # @param product [Spree::Product] The product to generate breadcrumbs for
+    # @return [Hash] The JSON-LD breadcrumbs
     def product_json_ld_breadcrumbs(product)
       json_ld = {
         '@context' => 'https://schema.org',
@@ -200,6 +212,10 @@ module Spree
       return unless option_type.color?
 
       Spree::ColorsPreviewStylesPresenter.new(option_type.option_values.map { |ov| { name: ov.name, filter_name: ov.name } }).to_s
+    end
+
+    def product_properties(product)
+      product.product_properties.joins(:property).merge(Spree::Property.available_on_front_end).sort_by_property_position
     end
   end
 end

@@ -4,6 +4,8 @@ module Spree
       before_action :load_data, except: :index
       before_action :set_default_values, only: :new
 
+      add_breadcrumb Spree.t(:shipping_methods), :admin_shipping_methods_path
+
       private
 
       def set_default_values
@@ -23,6 +25,10 @@ module Spree
       # needed for the inline edit of display on on the index page
       def update_turbo_stream_enabled?
         true
+      end
+
+      def permitted_resource_params
+        params.require(:shipping_method).permit(permitted_shipping_method_attributes)
       end
     end
   end

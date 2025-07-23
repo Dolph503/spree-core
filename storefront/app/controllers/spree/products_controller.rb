@@ -23,7 +23,7 @@ module Spree
       load_product
       # An interesting thing is that since we're querying the translations table (in the multi_search),
       # when using not default locale, our related products are different for different locales.
-      @products = current_store.products.active(current_currency).where.not(id: @product.id).
+      @products = storefront_products_scope.where.not(id: @product.id).
                   multi_search(@product.name).includes(storefront_products_includes).
                   limit(@section.preferred_max_products_to_show)
     end
@@ -77,9 +77,7 @@ module Spree
       # If an old id or a numeric id was used to find the record,
       # we should do a 301 redirect that uses the current friendly id.
       if params[:id] != @product.friendly_id
-        params[:id] = @product.friendly_id
-        params.permit!
-        redirect_to url_for(params), status: :moved_permanently
+        redirect_to spree.product_path(@product), status: :moved_permanently
       end
     end
 

@@ -5,6 +5,7 @@ module Spree
   module Core
     class Engine < ::Rails::Engine
       Environment = Struct.new(:calculators,
+                               :validators,
                                :preferences,
                                :dependencies,
                                :payment_methods,
@@ -21,11 +22,13 @@ module Spree
                                :page_sections,
                                :page_blocks,
                                :reports,
+                               :translatable_resources,
                                :analytics_events,
                                :analytics_event_handlers,
                                :integrations)
       SpreeCalculators = Struct.new(:shipping_methods, :tax_rates, :promotion_actions_create_adjustments, :promotion_actions_create_item_adjustments)
       PromoEnvironment = Struct.new(:rules, :actions)
+      SpreeValidators = Struct.new(:addresses)
       isolate_namespace Spree
       engine_name 'spree'
 
@@ -34,14 +37,14 @@ module Spree
       end
 
       initializer 'spree.environment', before: :load_config_initializers do |app|
-        app.config.spree = Environment.new(SpreeCalculators.new, Spree::Core::Configuration.new, Spree::Core::Dependencies.new)
+        app.config.spree = Environment.new(SpreeCalculators.new, SpreeValidators.new, Spree::Core::Configuration.new, Spree::Core::Dependencies.new)
 
         app.config.active_record.yaml_column_permitted_classes ||= []
         app.config.active_record.yaml_column_permitted_classes.concat([Symbol, BigDecimal, ActiveSupport::HashWithIndifferentAccess])
         Spree::Config = app.config.spree.preferences
         Spree::RuntimeConfig = app.config.spree.preferences # for compatibility
         Spree::Dependencies = app.config.spree.dependencies
-        Spree::Deprecation = ActiveSupport::Deprecation.new
+        Spree::Deprecation = ActiveSupport::Deprecation.new('6.0', 'Spree')
       end
 
       initializer 'spree.register.calculators', before: :after_initialize do |app|
@@ -97,6 +100,7 @@ module Spree
         Rails.application.config.spree.payment_methods = [
           Spree::Gateway::Bogus,
           Spree::Gateway::BogusSimple,
+          Spree::Gateway::CustomPaymentSourceMethod,
           Spree::PaymentMethod::Check,
           Spree::PaymentMethod::StoreCredit
         ]
@@ -146,7 +150,9 @@ module Spree
 
         Rails.application.config.spree.export_types = [
           Spree::Exports::Products,
-          Spree::Exports::Orders
+          Spree::Exports::Orders,
+          Spree::Exports::Customers,
+          Spree::Exports::GiftCards
         ]
 
         Rails.application.config.spree.taxon_rules = [
@@ -235,6 +241,15 @@ module Spree
           Spree::Reports::SalesTotal
         ]
 
+        Rails.application.config.spree.translatable_resources = [
+          Spree::OptionType,
+          Spree::Product,
+          Spree::Property,
+          Spree::Taxon,
+          Spree::Taxonomy,
+          Spree::Store
+        ]
+
         Rails.application.config.spree.analytics_events = {
           product_viewed: 'Product Viewed',
           product_list_viewed: 'Product List Viewed',
@@ -258,18 +273,15 @@ module Spree
           checkout_email_entered: 'Checkout Email Entered',
           checkout_step_viewed: 'Checkout Step Viewed',
           checkout_step_completed: 'Checkout Step Completed',
-
           order_completed: 'Order Completed',
-          order_cancelled: 'Order Cancelled',
-          order_refunded: 'Order Refunded',
-          package_shipped: 'Package Shipped',
-          order_fulfilled: 'Order Fulfilled',
-
-          gift_card_issued: 'Gift Card Issued'
         }
         Rails.application.config.spree.analytics_event_handlers = []
 
         Rails.application.config.spree.integrations = []
+
+        Rails.application.config.spree.validators.addresses = [
+          Spree::Addresses::PhoneValidator
+        ]
       end
 
       initializer 'spree.promo.register.promotions.actions' do |app|

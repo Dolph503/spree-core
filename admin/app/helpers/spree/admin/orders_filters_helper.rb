@@ -14,38 +14,48 @@ module Spree
 
         if search_params[:created_at_gt].present?
           search_params[:created_at_gt] = begin
-                                            Time.zone.parse(search_params[:created_at_gt]).beginning_of_day
-                                          rescue StandardError
-                                            ''
-                                          end
+            # Firstly we parse to date to avoid issues with timezones because frontend sends time in local timezone
+            search_params[:created_at_gt].to_date&.in_time_zone(current_timezone)
+          rescue StandardError
+            ''
+          end
         end
 
         if search_params[:created_at_lt].present?
           search_params[:created_at_lt] = begin
-                                            Time.zone.parse(search_params[:created_at_lt]).end_of_day
-                                          rescue StandardError
-                                            ''
-                                          end
+            search_params[:created_at_lt].to_date&.in_time_zone(current_timezone)&.end_of_day
+          rescue StandardError
+            ''
+          end
         end
 
         if search_params[:completed_at_gt].present?
           search_params[:completed_at_gt] = begin
-                                            Time.zone.parse(search_params[:completed_at_gt]).beginning_of_day
-                                          rescue StandardError
-                                            ''
-                                          end
+            search_params[:completed_at_gt].to_date&.in_time_zone(current_timezone)
+          rescue StandardError
+            ''
+          end
         end
 
         if search_params[:completed_at_lt].present?
           search_params[:completed_at_lt] = begin
-                                            Time.zone.parse(search_params[:completed_at_lt]).end_of_day
-                                          rescue StandardError
-                                            ''
-                                          end
+            search_params[:completed_at_lt].to_date&.in_time_zone(current_timezone)&.end_of_day
+          rescue StandardError
+            ''
+          end
         end
 
         search_params[:vendor_orders_vendor_id_eq] = vendor.id if vendor.present?
         search_params[:user_id_eq] = user.id if user.present?
+
+        # Handle refunded and partially_refunded payment state filters
+        if search_params[:payment_state_eq] == 'refunded'
+          search_params[:refunded] = '1'
+          search_params.delete(:payment_state_eq)
+        elsif search_params[:payment_state_eq] == 'partially_refunded'
+          search_params[:partially_refunded] = '1'
+          search_params.delete(:payment_state_eq)
+        end
 
         search_params
       end
@@ -57,7 +67,7 @@ module Spree
         # lazy loading other models here (via includes) may result in an invalid query
         # e.g. SELECT  DISTINCT DISTINCT "spree_orders".id, "spree_orders"."created_at" AS alias_0 FROM "spree_orders"
         # see https://github.com/spree/spree/pull/3919
-        @orders = @search.result(distinct: true).page(params[:page]).per(params[:per_page])
+        @orders = @search.result(distinct: true).page(params[:page]).per(params[:per_page] || Spree::Admin::RuntimeConfig.admin_orders_per_page)
       end
 
       def load_user

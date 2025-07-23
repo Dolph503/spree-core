@@ -4,7 +4,7 @@
 source 'https://rubygems.org'
 
 gem 'tzinfo-data', platforms: [:mingw, :mswin, :x64_mingw]
-gem 'rails', ENV.fetch('RAILS_VERSION', '~> 7.2.0'), require: false
+gem 'rails', ENV.fetch('RAILS_VERSION', '~> 8.0.0'), require: false
 
 platforms :jruby do
   gem 'jruby-openssl'
@@ -17,7 +17,7 @@ platforms :ruby do
   gem 'sqlite3', '>= 2.0'
 end
 
-gem 'sprockets-rails', '>= 2.0.0'
+gem 'sprockets-rails', '>= 3.5.2'
 
 group :test do
   gem 'capybara'
@@ -44,8 +44,10 @@ end
 group :test, :development do
   gem 'awesome_print'
   gem 'brakeman'
+  gem 'bundler-audit'
   gem 'gem-release'
   gem 'i18n-tasks'
+  gem 'license_finder'
   gem 'rubocop', '~> 1.0', require: false
   gem 'rubocop-rspec', require: false
   gem 'pry-byebug'

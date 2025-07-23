@@ -4,6 +4,7 @@ module Spree
       include Spree::Admin::StockLocationsHelper
       include Spree::Admin::BulkOperationsConcern
       include Spree::Admin::SessionAssetsHelper
+      include Spree::Admin::ProductsBreadcrumbConcern
 
       helper 'spree/admin/products'
       helper 'spree/admin/taxons'
@@ -151,7 +152,7 @@ module Spree
       protected
 
       def find_resource
-        current_store.products.accessible_by(current_ability, :manage).with_deleted.friendly.find(params[:id])
+        current_store.products.accessible_by(current_ability, :manage).friendly.find(params[:id])
       end
 
       def load_data
@@ -172,17 +173,17 @@ module Spree
           joins(option_type: :product_option_types).
           includes(option_type: :option_values).
           merge(@product.product_option_types).
-          reorder('spree_product_option_types.position').
+          reorder("#{Spree::ProductOptionType.table_name}.position").
           uniq.group_by(&:option_type).each_with_index do |option, index|
             option_type, option_values = option
 
             @product_options[option_type.id.to_s] = {
               name: option_type.presentation,
               position: index + 1,
-              values: option_values.pluck(:presentation).uniq
+              values: option_values.map { |ov| { value: ov.name, text: ov.presentation } }.uniq
             }
 
-            @product_available_options[option_type.id.to_s] = option_type.option_values.to_tom_select_json
+            @product_available_options[option_type.id.to_s] = option_type.option_values.map { |ov| { id: ov.name, name: ov.presentation } }.uniq
           end
 
         @product_stock = {}
@@ -273,21 +274,13 @@ module Spree
                       for_ordering_with_translations(model_class, :name).
                       includes(product_includes).
                       page(params[:page]).
-                      per(params[:per_page] || ENV.fetch('ADMIN_PRODUCTS_PER_PAGE', 25))
+                      per(params[:per_page] || Spree::Admin::RuntimeConfig.admin_products_per_page)
 
         @collection
       end
 
       def clone_object_url(resource)
         clone_admin_product_url resource
-      end
-
-      def permitted_resource_params
-        if cannot?(:activate, @product) && @new_status&.to_sym == :active
-          super.except(:status, :make_active_at).permit!
-        else
-          super
-        end
       end
 
       private
@@ -359,6 +352,16 @@ module Spree
       def check_slug_availability
         new_slug = permitted_resource_params[:slug]
         permitted_resource_params[:slug] = @product.ensure_slug_is_unique(new_slug)
+      end
+
+      def permitted_resource_params
+        @permitted_resource_params ||= begin
+          if cannot?(:activate, @product) && @new_status&.to_sym == :active
+            params.require(:product).permit(permitted_product_attributes).except(:status, :make_active_at)
+          else
+            params.require(:product).permit(permitted_product_attributes)
+          end
+        end
       end
     end
   end

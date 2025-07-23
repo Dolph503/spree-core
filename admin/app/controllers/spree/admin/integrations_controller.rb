@@ -10,6 +10,9 @@ module Spree
 
       before_action :check_if_can_connect, only: %i[create update]
 
+      add_breadcrumb Spree.t(:integrations), :admin_integrations_path
+      add_breadcrumb_icon 'plug-connected'
+
       private
 
       def allowed_integration_types
@@ -48,6 +51,10 @@ module Spree
           @integration.errors.add(:base, :unable_to_connect, error_message: @integration.connection_error_message)
           render action == :create ? :new : :edit, status: :unprocessable_entity
         end
+      end
+
+      def permitted_resource_params
+        params.require(:integration).permit(*permitted_integration_attributes + @object.preferences.keys.map { |key| "preferred_#{key}" })
       end
     end
   end

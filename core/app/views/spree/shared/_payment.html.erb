@@ -12,23 +12,32 @@
       <p class="mb-0"><%= Spree.t(:expiration) %> <%= source.month %>/<%= source.year %></p>
     </div>
   <% elsif source.is_a?(Spree::StoreCredit) %>
-    <% if source.respond_to?(:gift_card) && source.gift_card.present? %>
-      <div class="d-flex flex rounded bg-light px-3 py-2 mb-3 align-items-center">
-        <%= icon('gift', height: 30, class: 'mr-3 text-muted') %>
+    <% if source.originator_type == 'Spree::GiftCard' %>
+      <div class="d-flex align-items-center">
+        <%= icon('gift', height: 30, class: 'mr-3 text-muted opacity-50') %>
         <div>
-          <p class="mb-1"><%= Spree.t(:gift_card) %>: <strong><%= source.gift_card.code.upcase %></strong></p>
+          <p class="mb-1"><%= Spree.t(:gift_card) %>: <strong><%= source.originator.code.upcase %></strong></p>
           <%= @order.display_gift_card_total %>
         </div>
       </div>
     <% elsif payment_method_icon_tag(payment.payment_method.payment_icon_name).present? %>
       <div class="d-flex flex align-items-center items-center">
         <div><%= payment_method_icon_tag(payment.payment_method.payment_icon_name) %></div>
-        <div class="mx-2"><%= Spree.t(:store_credit_name) %></div>
+        <div class="ml-3"><%= Spree.t(:store_credit_name) %></div>
       </div>
     <% end %>
   <% elsif source.present? %>
     <div class="flex-shrink-0">
       <%= payment_method_icon_tag source.class.to_s.demodulize.downcase, height: 30 %>
+    </div>
+    <div>
+      <% if payment.payment_method.respond_to?(:source_partial_name) %>
+        <%= render partial: "spree/payment_sources/#{payment.payment_method.source_partial_name}", locals: { payment: payment, source: source } %>
+      <% elsif source.respond_to?(:name) %>
+        <%= source.name %>
+      <% else %>
+        <%= source.class.to_s.demodulize.downcase %>
+      <% end %>
     </div>
   <% else %>
     <div class="flex-shrink-0">

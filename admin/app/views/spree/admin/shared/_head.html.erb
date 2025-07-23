@@ -52,3 +52,9 @@
 <%= render 'spree/shared/google_places_api_loader' %>
 
 <%= render_admin_partials(:head_partials) %>
+
+<script>
+  window.Spree = window.Spree || {}
+  Spree.adminPath = '<%= spree.admin_path %>'
+  Spree.locale = '<%= I18n.locale %>'
+</script>

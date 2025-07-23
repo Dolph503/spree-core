@@ -1,6 +1,7 @@
 require 'spec_helper'
 
 RSpec.describe Spree::Invitation, type: :model do
+  let!(:store) { create(:store, default: true) }
   let(:invitation) { create(:invitation) }
 
   before do
@@ -15,6 +16,17 @@ RSpec.describe Spree::Invitation, type: :model do
         invitation.invitee = invitation.inviter
         expect(invitation).not_to be_valid
         expect(invitation.errors[:invitee]).to include('cannot be the same as the inviter')
+      end
+    end
+
+    context 'when invitation is accepted after expiration' do
+      it 'is invalid' do
+        invitation.expires_at = 1.day.ago
+        expect(invitation.accept).to be_falsey
+
+        expect(invitation.accepted_at).not_to be_present
+        expect(invitation.status).to eq('pending')
+        expect(invitation.errors[:base]).to include('Invitation expired')
       end
     end
 
@@ -33,15 +45,21 @@ RSpec.describe Spree::Invitation, type: :model do
     it 'sets defaults on initialization' do
       invitation = build(:invitation)
       expect(invitation.expires_at).to be_present
+      expect(invitation.resource).to eq(Spree::Store.current)
+      expect(invitation.role).to eq(Spree::Role.default_admin_role)
     end
 
     it 'sends invitation email after create' do
       expect { invitation.save }.to have_enqueued_job(ActionMailer::MailDeliveryJob)
     end
 
-    it 'does not send invitation email when skip_email is true' do
-      invitation.skip_email = true
-      expect { invitation.save }.not_to have_enqueued_job(ActionMailer::MailDeliveryJob)
+    it 'sets invitee from email before validation' do
+      create(:admin_user, :without_admin_role, email: 'test@example.com')
+
+      invitation = build(:invitation, email: 'test@example.com')
+      expect(invitation.invitee).to be_nil
+      invitation.save
+      expect(invitation.invitee).to be_present
     end
   end
 
@@ -52,31 +70,31 @@ RSpec.describe Spree::Invitation, type: :model do
 
     context 'when accepting an invitation' do
       it 'changes status to accepted' do
-        invitation.invitee = create(:admin_user, :no_resource_user)
+        invitation.invitee = create(:admin_user, :without_admin_role)
         invitation.accept
         expect(invitation.status).to eq('accepted')
       end
 
       it 'sets accepted_at timestamp' do
         expect(invitation.accepted_at).to be_nil
-        invitation.invitee = create(:admin_user, :no_resource_user)
+        invitation.invitee = create(:admin_user, :without_admin_role)
         invitation.accept
         expect(invitation.accepted_at).to be_present
       end
 
       it 'sends acceptance notification' do
-        invitation.invitee = create(:admin_user, :no_resource_user)
+        invitation.invitee = create(:admin_user, :without_admin_role)
         clear_enqueued_jobs
         expect { invitation.accept }.to have_enqueued_job(ActionMailer::MailDeliveryJob)
       end
 
       it 'creates a resource user' do
-        invitation.invitee = create(:admin_user, :no_resource_user)
-        expect { invitation.accept }.to change(invitation, :resource_user).from(nil).to(Spree::ResourceUser)
-        expect(invitation.resource_user.user).to eq(invitation.invitee)
-        expect(invitation.resource_user.resource).to eq(invitation.resource)
-        expect(invitation.resource_user.invitation).to eq(invitation)
-        expect(invitation.resource_user.user.spree_roles).to eq(invitation.roles)
+        invitation.invitee = create(:admin_user, :without_admin_role)
+        expect { invitation.accept }.to change(invitation, :role_user).from(nil).to(Spree::RoleUser)
+        expect(invitation.role_user.user).to eq(invitation.invitee)
+        expect(invitation.role_user.resource).to eq(invitation.resource)
+        expect(invitation.role_user.invitation).to eq(invitation)
+        expect(invitation.role_user.role).to eq(invitation.role)
       end
     end
   end
@@ -107,7 +125,7 @@ RSpec.describe Spree::Invitation, type: :model do
     end
 
     it 'does not send invitation email if invitation is accepted' do
-      invitation.invitee = create(:admin_user, :no_resource_user)
+      invitation.invitee = create(:admin_user, spree_roles: [])
       invitation.accept
       expect(invitation).not_to receive(:send_invitation_email)
       invitation.resend!

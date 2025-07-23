@@ -37,7 +37,8 @@ export default class extends CheckboxSelectAll {
     currentStockLocationId: String,
     stockLocations: Array,
     optionValuesSelectOptions: Array,
-    locale: String
+    locale: String,
+    adminPath: String
   }
 
   connect() {
@@ -67,6 +68,8 @@ export default class extends CheckboxSelectAll {
           .filter((internalName) => !existingVariantsOnServer.includes(internalName))
       )
     }
+
+    this.inventoryFormTarget = document.querySelector('.inventory-form');
   }
 
   toggleQuantityTracked() {
@@ -126,7 +129,7 @@ export default class extends CheckboxSelectAll {
       const nestingLevel = internalName.split('/').length
       if (nestingLevel === 1) {
         const firstOptionKey = Object.keys(this.optionsValue)[0]
-        const newOptionValues = this.optionsValue[firstOptionKey].values.filter((value) => value !== internalName)
+        const newOptionValues = this.optionsValue[firstOptionKey].values.filter((value) => value.text !== internalName)
         if (newOptionValues.length === 0) {
           const newOptionsValue = this.optionsValue
           delete newOptionsValue[firstOptionKey]
@@ -236,17 +239,22 @@ export default class extends CheckboxSelectAll {
   }
 
   optionsValueChanged(value, previousValue) {
+    let hasNoOptions = true
+
     if (this.hasNewOptionButtonTarget) {
       const label = this.newOptionButtonLabelTarget
 
       if (Object.values(value).filter(Boolean).length) {
         label.textContent = label.dataset.hasOptionsText
+        hasNoOptions = false
       } else {
         label.textContent = label.dataset.noOptionsText
       }
     }
     this.refreshOptionNameSelect()
     this.variantsValue = this.generateVariants(value)
+
+    this.toggleInventoryForm(hasNoOptions)
 
     // We want to clear the ignoredVariants when the options change
     if (previousValue && Object.keys(previousValue).length === 0) return
@@ -257,12 +265,12 @@ export default class extends CheckboxSelectAll {
     let name = ''
     let internalName = name
     if (i === 0) {
-      name = variant[keys[i]]
+      name = variant[keys[i]].text
       internalName = name
     } else {
-      const namesPath = keys.slice(1, keys.length).map((key) => variant[key])
+      const namesPath = keys.slice(1, keys.length).map((key) => variant[key].text)
       name = namesPath.join(' / ')
-      internalName = `${variant[keys[0]]}/${namesPath.join('/')}`
+      internalName = `${variant[keys[0]].text}/${namesPath.join('/')}`
     }
 
     return { name, internalName }
@@ -487,7 +495,7 @@ export default class extends CheckboxSelectAll {
             const variantEditButton = variantTarget.querySelector('[data-slot="variantEditButton"]')
 
             if (variantEditButton) {
-              variantEditButton.href = `/admin/products/${this.productIdValue}/variants/${variantId}/edit`
+              variantEditButton.href = `${Spree.adminPath}/products/${this.productIdValue}/variants/${variantId}/edit`
               variantEditButton.classList.remove('invisible')
             }
           }
@@ -564,12 +572,12 @@ export default class extends CheckboxSelectAll {
   refreshParentInputs() {
     const firstOption = Object.values(this.optionsValue)[0]
     if (firstOption) {
-      firstOption.values.forEach((name) => {
+      firstOption.values.forEach((option) => {
         this.currenciesValue.forEach((currency) => {
-          this.updateParentPriceRange(name, currency)
+          this.updateParentPriceRange(option.text, currency)
         })
         this.stockLocationsValue.forEach((stockLocationId) => {
-          this.updateParentStockSum(name, stockLocationId)
+          this.updateParentStockSum(option.text, stockLocationId)
         })
         this.updateShopLocationCountOnHand()
       })
@@ -607,11 +615,17 @@ export default class extends CheckboxSelectAll {
         .find((option) => option.name === key).position
       inputs.push(positionInput)
 
-      const valueInput = document.createElement('input')
-      valueInput.type = 'hidden'
-      valueInput.name = `product[variants_attributes][${i}][options][][value]`
-      valueInput.value = variant[key]
-      inputs.push(valueInput)
+      const optionNameInput = document.createElement('input')
+      optionNameInput.type = 'hidden'
+      optionNameInput.name = `product[variants_attributes][${i}][options][][option_value_name]`
+      optionNameInput.value = variant[key].value
+      inputs.push(optionNameInput)
+
+      const optionIdInput = document.createElement('input')
+      optionIdInput.type = 'hidden'
+      optionIdInput.name = `product[variants_attributes][${i}][options][][option_value_presentation]`
+      optionIdInput.value = variant[key].text
+      inputs.push(optionIdInput)
     })
 
     return inputs
@@ -717,7 +731,7 @@ export default class extends CheckboxSelectAll {
     this.lastOptionNameId = targetInput.value
 
     if (this.lastOptionNameId) {
-      const response = await get(`/admin/option_types/${this.lastOptionNameId}/option_values/select_options`)
+      const response = await get(`${this.adminPathValue}/option_types/${this.lastOptionNameId}/option_values/select_options`)
 
       if (response.ok) {
         this.currentOptionValues[this.lastOptionNameId] = await response.json
@@ -765,6 +779,8 @@ export default class extends CheckboxSelectAll {
     this.addOption(newOptionName, newOptionValues, newOptionId)
 
     this.hideNewOptionForm()
+
+    this.toggleInventoryForm(false)
   }
 
   hideNewOptionForm() {
@@ -914,8 +930,8 @@ export default class extends CheckboxSelectAll {
     const optionValuesSelectContainer = template.querySelector('[data-slot="optionValuesSelectContainer"]')
     const tomSelectOptionValues = optionValues.map((optionValue) => {
       return {
-        id: availableOptions.find((availableOption) => availableOption.name === optionValue)?.id,
-        name: optionValue
+        id: optionValue.value,
+        name: optionValue.text,
       }
     })
 
@@ -938,8 +954,8 @@ export default class extends CheckboxSelectAll {
     values.forEach((value) => {
       const template = this.optionValueTemplateTarget.content.cloneNode(true)
       const optionValueNameEl = template.querySelector('[data-slot="optionValueName"]')
-      optionValueNameEl.textContent = value
-      optionValueNameEl.dataset.name = value
+      optionValueNameEl.textContent = value.text
+      optionValueNameEl.dataset.name = value.text
 
       templates.push(template)
     })
@@ -1050,6 +1066,16 @@ export default class extends CheckboxSelectAll {
           amount: parseFloat(newPrice)
         }
       }
+    }
+  }
+
+  toggleInventoryForm(value) {
+    if (!this.inventoryFormTarget) return
+
+    if (value) {
+      this.inventoryFormTarget.classList.remove('d-none')
+    } else {
+      this.inventoryFormTarget.classList.add('d-none')
     }
   }
 }

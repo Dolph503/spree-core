@@ -6,6 +6,9 @@ module Spree
       destroy.after :remove_preview_from_session
       create.after :remove_preview_from_session
 
+      include StorefrontBreadcrumbConcern
+      add_breadcrumb Spree.t(:pages), :admin_pages_path
+
       private
 
       def remove_preview_from_session
@@ -34,6 +37,10 @@ module Spree
 
         @search = @collection.ransack(params[:q])
         @collection = @search.result.page(params[:page]).per(params[:per_page])
+      end
+
+      def permitted_resource_params
+        params.require(:page).permit(permitted_page_attributes)
       end
     end
   end

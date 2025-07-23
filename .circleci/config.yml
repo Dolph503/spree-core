@@ -31,8 +31,15 @@ commands:
   install_libvips:
     steps:
       - run:
+          name: Fix APT mirrors
+          command: |
+            sudo sed -i 's|http://archive.ubuntu.com|http://ubuntu.cs.utah.edu|g' /etc/apt/sources.list
+            sudo sed -i 's|http://security.ubuntu.com|http://ubuntu.cs.utah.edu|g' /etc/apt/sources.list
+            sudo apt-get update
+      - run:
           name: Install libvips
-          command: sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 32EE5355A6BC6E42 && sudo apt-get update && sudo apt-get install libvips42
+          command: |
+            sudo apt-get install -y libvips-dev
   store_all_artifacts:
     steps:
       - store_artifacts:
@@ -88,6 +95,7 @@ jobs:
       DB_USERNAME: root
       DB_PASSWORD: password
       DB_HOST: 127.0.0.1
+      RAILS_VERSION: 7.2.0
 
   # postgres tests
   test_core_postgres:
@@ -104,11 +112,13 @@ jobs:
       PROJECTS: api
   test_admin_postgres:
     <<: *test
+    parallelism: 2
     environment:
       <<: *environment
       PROJECTS: admin
   test_storefront_postgres:
     <<: *test
+    parallelism: 2
     environment:
       <<: *environment
       PROJECTS: storefront
@@ -133,11 +143,13 @@ jobs:
       PROJECTS: api
   test_admin_mysql:
     <<: *test_mysql
+    parallelism: 2
     environment:
       <<: *mysql_environment
       PROJECTS: admin
   test_storefront_mysql:
     <<: *test_mysql
+    parallelism: 2
     environment:
       <<: *mysql_environment
       PROJECTS: storefront
@@ -146,7 +158,23 @@ jobs:
     environment:
       <<: *mysql_environment
       PROJECTS: emails,sample
-      
+
+  # brakeman
+  brakeman:
+    <<: *defaults
+    steps:
+      - checkout
+      - bundle_install
+      - run: bin/brakeman.sh
+      - run:
+          name: Move brakeman reports to artifacts directory
+          command: |
+            mkdir -p /tmp/test-artifacts/
+            mv brakeman-*.* /tmp/test-artifacts/
+      - store_artifacts:
+          path: /tmp/test-artifacts
+          destination: brakeman-reports
+
 workflows:
   main:
     jobs:
@@ -172,20 +200,20 @@ workflows:
       - test_core_mysql:
           requires:
             - build
-            - test_core_postgres
       - test_api_mysql:
           requires:
             - build
-            - test_api_postgres
       - test_admin_mysql:
           requires:
             - build
-            - test_admin_postgres
       - test_storefront_mysql:
           requires:
             - build
-            - test_storefront_postgres
       - test_other_mysql:
           requires:
             - build
-            - test_other_postgres
+
+      # brakeman
+      - brakeman:
+          requires:
+            - build

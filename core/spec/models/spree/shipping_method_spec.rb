@@ -35,6 +35,17 @@ describe Spree::ShippingMethod, type: :model do
     end
   end
 
+  describe '#requires_zone_check?' do
+    it 'returns true if the shipping method is not digital' do
+      expect(shipping_method.requires_zone_check?).to be_truthy
+    end
+
+    it 'returns false if the shipping method is digital' do
+      shipping_method = create(:digital_shipping_method)
+      expect(shipping_method.requires_zone_check?).to be_falsey
+    end
+  end
+
   context 'calculators' do
     it "rejects calculators that don't inherit from Spree::ShippingCalculator" do
       allow(Spree::ShippingMethod).to receive_message_chain(:spree_calculators, :shipping_methods).and_return([
@@ -182,6 +193,20 @@ describe Spree::ShippingMethod, type: :model do
       let(:shipping_method) { build(:shipping_method, estimated_transit_business_days_min: 1, estimated_transit_business_days_max: 1) }
 
       it { expect(shipping_method.delivery_range).to eq('1') }
+    end
+
+    context "when only one transit day value is set" do
+      context "when only minimum day is set" do
+        let(:shipping_method) { build(:shipping_method, estimated_transit_business_days_min: 1) }
+
+        it { expect(shipping_method.delivery_range).to eq('1') }
+      end
+
+      context "when only maximum day is set" do
+        let(:shipping_method) { build(:shipping_method, estimated_transit_business_days_max: 2) }
+
+        it { expect(shipping_method.delivery_range).to eq('2') }
+      end
     end
   end
 

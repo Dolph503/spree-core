@@ -42,6 +42,14 @@ module Spree
         flash[:error] = error.message
         redirect_to spree.edit_admin_order_reimbursement_path(parent, @reimbursement)
       end
+
+      def permitted_resource_params
+        if params[:build_from_customer_return_id].present?
+          params.permit()
+        else
+          params.require(:reimbursement).permit(permitted_reimbursement_attributes)
+        end
+      end
     end
   end
 end

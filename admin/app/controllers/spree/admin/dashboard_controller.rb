@@ -7,9 +7,15 @@ module Spree
       before_action :load_vendor
       before_action :clear_return_to, only: %i[show]
 
-      def show; end
+      def show
+        @breadcrumb_icon = 'home'
+        add_breadcrumb Spree.t(:home), spree.admin_dashboard_path
+      end
 
-      def getting_started; end
+      def getting_started
+        @breadcrumb_icon = 'map'
+        add_breadcrumb Spree.t('admin.getting_started'), spree.admin_getting_started_path
+      end
 
       def analytics
         @orders_scope = current_store.orders.complete.where(currency: params[:analytics_currency])
@@ -55,6 +61,12 @@ module Spree
       # PATCH /admin/dashboard/dismiss_enterprise_edition_notice
       def dismiss_enterprise_edition_notice
         session[:spree_enterprise_edition_notice_dismissed] = true
+        redirect_back(fallback_location: spree.admin_dashboard_path)
+      end
+
+      # PATCH /admin/dashboard/dismiss_updater_notice
+      def dismiss_updater_notice
+        session[:spree_updater_notice_dismissed] = { value: true, expires_at: 7.days.from_now }
         redirect_back(fallback_location: spree.admin_dashboard_path)
       end
 
@@ -111,9 +123,11 @@ module Spree
         @audience_growth_rate = calc_growth_rate(@audience_total, previous_audience_total)
 
         @audience = if same_day?
-                      @audience_scope.group_by_hour(:created_at, range: analytics_time_range, time_zone: current_store.preferred_timezone, default_value: 0)
+                      @audience_scope.group_by_hour(:created_at, range: analytics_time_range, time_zone: current_store.preferred_timezone,
+                                                                 default_value: 0)
                     else
-                      @audience_scope.group_by_day(:created_at, range: analytics_time_range, time_zone: current_store.preferred_timezone, default_value: 0)
+                      @audience_scope.group_by_day(:created_at, range: analytics_time_range, time_zone: current_store.preferred_timezone,
+                                                                default_value: 0)
                     end
 
         return unless defined?(Ahoy)
@@ -123,25 +137,22 @@ module Spree
         previous_visits_total = Ahoy::Visit.where(started_at: previous_analytics_time_range).count
         @visits_growth_rate = calc_growth_rate(@visits_total, previous_visits_total)
 
-        @visits_scope = Ahoy::Visit.where(started_at: analytics_time_range)
-        @visits_total = @visits_scope.count
-        previous_visits_total = Ahoy::Visit.where(started_at: previous_analytics_time_range).count
-        @visits_growth_rate = calc_growth_rate(@visits_total, previous_visits_total)
-
         @visits = if same_day?
-                    @visits_scope.group_by_hour(:started_at, range: analytics_time_range, time_zone: current_store.preferred_timezone, default_value: 0)
+                    @visits_scope.group_by_hour(:started_at, range: analytics_time_range, time_zone: current_store.preferred_timezone,
+                                                             default_value: 0)
                   else
-                    @visits_scope.group_by_day(:started_at, range: analytics_time_range, time_zone: current_store.preferred_timezone, default_value: 0)
+                    @visits_scope.group_by_day(:started_at, range: analytics_time_range, time_zone: current_store.preferred_timezone,
+                                                            default_value: 0)
                   end
 
-        @top_landing_pages = @visits_scope.where.not(landing_page_title: [nil, '']).top(:landing_page_title, 10)
+        @top_landing_pages = @visits_scope.where.not(landing_page: [nil, '']).top(:landing_page, 10)
         @top_referrers = @visits_scope.where.not(referring_domain: current_store.custom_domains.pluck(:url) << current_store.url).top(
           :referring_domain, 10
         )
         @top_locations = @visits_scope.top(:country, 10)
         @top_devices = @visits_scope.group(:device_type).count.transform_keys do |device|
-                        device.nil? ? 'N/A' : device
-                      end.map { |series| [series.first, (series.second.to_f / @visits_scope.count) * 100] }
+          device.nil? ? 'N/A' : device
+        end.map { |series| [series.first, (series.second.to_f / @visits_scope.count) * 100] }
       end
     end
   end

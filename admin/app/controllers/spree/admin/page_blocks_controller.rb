@@ -26,14 +26,31 @@ module Spree
       end
 
       def create
-        allowed_types = Rails.application.config.spree.page_blocks.map(&:to_s)
         page_block_type = params.dig(:page_block, :type)
+        allowed_type = allowed_types.find { |type| type.to_s == page_block_type }
 
-        if allowed_types.include?(page_block_type) && page_block_type.safe_constantize.present?
-          @page_block = page_block_type.constantize.new
+        if allowed_type
+          @page_block = allowed_type.new
           @page_block.section = @page_section
           @page_block.save!
         end
+      end
+
+      private
+
+      def allowed_types
+        [
+          *Rails.application.config.spree.page_blocks,
+          *parent&.available_blocks_to_add
+        ].uniq.sort_by(&:name)
+      end
+
+      def permitted_resource_params
+        params.require(:page_block).permit(
+          permitted_page_block_attributes +
+          [link_attributes: permitted_page_link_attributes + [:id]] +
+          @object.preferences.keys.map { |key| "preferred_#{key}" }
+        )
       end
     end
   end

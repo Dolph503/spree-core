@@ -123,29 +123,31 @@ module Spree
     end
 
     def storefront_products_scope
-      current_store.products.active(current_currency)
+      @storefront_products_scope ||= current_store.products.active(current_currency)
     end
 
     def default_products_finder_params
-      taxon = @taxon || current_taxon
+      @default_products_finder_params ||= begin
+        taxon = @taxon || current_taxon
 
-      filter = permitted_products_params.fetch(:filter, {}).dup
+        filter = permitted_products_params.fetch(:filter, {}).dup
 
-      filter[:taxon_ids] ||= [taxon&.id.to_s].compact
-      filter[:taxons] = filter[:taxon_ids].join(',')
+        filter[:taxon_ids] ||= [taxon&.id.to_s].compact
+        filter[:taxons] = filter[:taxon_ids].join(',')
 
-      if filter.key?(:min_price) || filter.key?(:max_price)
-        min_price = filter[:min_price].presence || 0
-        max_price = filter[:max_price].presence || 'Infinity'
+        if filter.key?(:min_price) || filter.key?(:max_price)
+          min_price = filter[:min_price].presence || 0
+          max_price = filter[:max_price].presence || 'Infinity'
 
-        filter[:price] = [min_price, max_price].compact.join(',')
+          filter[:price] = [min_price, max_price].compact.join(',')
+        end
+
+        permitted_products_params.merge(
+          store: current_store,
+          filter: filter,
+          currency: current_currency
+        )
       end
-
-      permitted_products_params.merge(
-        store: current_store,
-        filter: filter,
-        currency: current_currency
-      )
     end
 
     def storefront_products
@@ -198,37 +200,30 @@ module Spree
     end
 
     def redirect_back_or_default(default)
-      redirect_to(session[:user_return_to] || default)
+      Spree::Deprecation.warn('redirect_back_or_default is deprecated and will be removed in Spree 5.2. Please use redirect_back(fallback_location: default) instead.')
+      redirect_back(fallback_location: default)
     end
 
-    def require_user(return_to = nil)
+    def require_user(return_to: nil, redirect_path: nil)
       return if try_spree_current_user
 
       store_location(return_to)
 
       respond_to do |format|
-        format.html { redirect_to spree_login_path }
+        format.html { redirect_to redirect_path || spree_login_path }
         format.turbo_stream { render turbo_stream: turbo_stream.slideover_open('slideover-account', 'account-pane') }
       end
-    end
-
-    # this will work for devise out of the box
-    # for other auth systems you will need to override this method
-    def store_location(location = nil)
-      return if try_spree_current_user
-      return unless defined?(store_location_for)
-      return unless defined?(Devise)
-
-      location ||= request.fullpath
-
-      store_location_for(Devise.mappings.keys.first, location)
     end
 
     def stored_location
       return unless defined?(after_sign_in_path_for)
       return unless defined?(Devise)
 
-      after_sign_in_path_for(Devise.mappings.keys.first)
+      path = after_sign_in_path_for(Devise.mappings.keys.first)
+
+      store_location(path)
+
+      path
     end
 
     def redirect_to_cart

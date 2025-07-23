@@ -34,6 +34,7 @@ if (typeof Stimulus === 'undefined') {
 }
 import AutoSubmit from '@stimulus-components/auto-submit'
 import CheckboxSelectAll from 'stimulus-checkbox-select-all'
+import Dropdown from '@stimulus-components/dropdown'
 import TextareaAutogrow from 'stimulus-textarea-autogrow'
 import Notification from 'stimulus-notification'
 import PasswordVisibility from 'stimulus-password-visibility'
@@ -43,6 +44,7 @@ import Sortable from 'stimulus-sortable'
 import { Tabs } from 'tailwindcss-stimulus-components'
 
 import ActiveStorageUpload from 'spree/admin/controllers/active_storage_upload_controller'
+import AdminController from 'spree/admin/controllers/admin_controller'
 import AssetUploaderController from 'spree/admin/controllers/asset_uploader_controller'
 import AutocompleteSelectController from 'spree/admin/controllers/autocomplete_select_controller'
 import BetterSliderController from 'spree/admin/controllers/better_slider_controller'
@@ -73,19 +75,21 @@ import SectionFormController from 'spree/admin/controllers/section_form_controll
 import SelectController from 'spree/admin/controllers/select_controller'
 import SeoFormController from 'spree/admin/controllers/seo_form_controller'
 import SlugFormController from 'spree/admin/controllers/slug_form_controller'
+import StickyController from 'spree/admin/controllers/sticky_controller'
 import SortableTree from 'spree/admin/controllers/sortable_tree_controller'
 import StockTransferController from 'spree/admin/controllers/stock_transfer_controller'
 import StoreFormController from 'spree/admin/controllers/store_form_controller'
 import UnitSystemController from 'spree/admin/controllers/unit_system_controller'
 import VariantsFormController from 'spree/admin/controllers/variants_form_controller'
-import WebhooksSubscriberEventsController from 'spree/admin/controllers/webhook_subscriber_events_controller'
 import AddressAutocompleteController from 'spree/core/controllers/address_autocomplete_controller'
 import AddressFormController from 'spree/core/controllers/address_form_controller'
+import DisableSubmitButtonController from 'spree/core/controllers/disable_submit_button_controller'
 import EnableButtonController from 'spree/core/controllers/enable_button_controller'
 
 application.register('active-storage-upload', ActiveStorageUpload)
 application.register('address-autocomplete', AddressAutocompleteController)
 application.register('address-form', AddressFormController)
+application.register('admin', AdminController)
 application.register('asset-uploader', AssetUploaderController)
 application.register('auto-submit', AutoSubmit)
 application.register('autocomplete-select', AutocompleteSelectController)
@@ -99,6 +103,8 @@ application.register('checkbox-select-all', CheckboxSelectAll)
 application.register('clipboard', Clipboard)
 application.register('color-palette', ColorPaletteController)
 application.register('color-picker', ColorPickerController)
+application.register('disable-submit-button', DisableSubmitButtonController)
+application.register('dropdown', Dropdown)
 application.register('enable-button', EnableButtonController)
 application.register('filters', FiltersController)
 application.register('font-picker', FontPickerController)
@@ -123,6 +129,7 @@ application.register('section-form', SectionFormController)
 application.register('select', SelectController)
 application.register('seo-form', SeoFormController)
 application.register('slug-form', SlugFormController)
+application.register('sticky', StickyController)
 application.register('sortable', Sortable)
 application.register('sortable-tree', SortableTree)
 application.register('stock-transfer', StockTransferController)
@@ -131,7 +138,6 @@ application.register('tabs', Tabs)
 application.register('textarea-autogrow', TextareaAutogrow)
 application.register('unit-system', UnitSystemController)
 application.register('variants-form', VariantsFormController)
-application.register('webhooks-subscriber-events', WebhooksSubscriberEventsController)
 
 LocalTime.start()
 

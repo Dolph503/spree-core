@@ -2,27 +2,37 @@
 
 <%= render 'spree/admin/shared/offcanvas_nav' %>
 
-<header id="header" data-turbo-permanent>
-  <nav class="navbar navbar-expand-lg py-2 px-lg-5 d-lg-none">
-    <button type="button" class="btn d-flex align-items-center p-0 h-100 pull-bs-canvas-left d-lg-none text-white text-decoration-none">
-      <%= icon('menu-2', height: 32, class: 'm-0 h-100') %>
-    </button>
-
-    <div class="navbar-collapse d-none d-lg-flex">
-      <%= form_with url: spree.admin_search_admin_path, method: :post, class: 'd-none' do |form| %>
-        <div class="w-50 d-lg-flex align-items-center pr-2">
-          <%= icon('search', class: 'text-muted') %>
-          <%= text_field_tag :search, params[:search], class: 'px-3 py-2 bg-transparent w-100 outline-none border-0', placeholder: 'Search...', oninput: "this.form.requestSubmit()" %>
-        </div>
-      <% end if spree.respond_to?(:admin_search_admin_path) && defined?(current_store) && current_store %>
+<header id="header" class="sticky-top py-0">
+  <nav class="navbar navbar-expand-lg p-0 d-flex align-items-center pr-3">
+    <div class="d-lg-none pr-3 border-right">
+      <button type="button" class="btn btn-light pull-bs-canvas-left px-2 ml-3 text-decoration-none">
+        <%= icon('menu-2', class: 'mr-0') %>
+      </button>
     </div>
 
-    <%= link_to spree.admin_dashboard_path, class: 'navbar-brand d-flex d-lg-none h-100 align-items-center mx-0 text-white' do %>
-      <%= current_store.name %>
+    <% if settings_active? %>
+      <%= link_to spree.admin_path, class: 'store-dropdown text-decoration-none px-2 justify-content-start with-tip', title: Spree.t('admin.back_to_dashboard'), data: { admin_target: 'close' } do %>
+        <%= icon 'x', class: 'mx-2' %>
+        <kbd>ESC</kbd>
+      <% end %>
+    <% else %>
+      <% if defined?(current_vendor) && current_vendor.present? %>
+        <%= render 'spree/admin/shared/sidebar/vendor_dropdown' %>
+      <% else %>
+        <%= render 'spree/admin/shared/sidebar/store_dropdown' %>
+      <% end %>
     <% end %>
 
-    <div class="text-right d-flex justify-content-end p-0" id="header-user-account" data-turbo-permanent>
+    <div class="d-none d-lg-block">
+      <%= render 'spree/admin/shared/breadcrumbs' %>
+    </div>
+
+    <div class="ml-auto d-flex align-items-center">
       <%= render 'spree/admin/shared/user_dropdown' %>
     </div>
   </nav>
 </header>
+
+<div class="d-lg-none py-3 border-bottom">
+  <%= render 'spree/admin/shared/breadcrumbs' %>
+</div>

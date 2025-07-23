@@ -4,7 +4,6 @@ module Spree
     include Spree::CheckoutHelper
     include Spree::CheckoutAnalyticsHelper
 
-    before_action :require_user, unless: -> { current_store.prefers_guest_checkout? }
     before_action :load_order
     before_action :remove_out_of_stock_items, only: [:edit, :update]
 
@@ -14,6 +13,7 @@ module Spree
 
     before_action :ensure_order_not_completed, only: [:edit, :update]
     before_action :ensure_checkout_allowed
+    before_action :check_if_checkout_started, only: :edit
     before_action :ensure_valid_state, only: [:edit, :update]
 
     before_action :restart_checkout, only: :edit, if: :should_restart_checkout?
@@ -22,7 +22,7 @@ module Spree
 
     before_action :remove_expired_gift_card, only: :edit
 
-    before_action :store_user_location, only: :edit
+    before_action :store_location, only: :edit
 
     after_action :clean_analytics_session, only: :edit
     after_action :clear_checkout_completed_session, only: [:complete]
@@ -33,13 +33,6 @@ module Spree
 
     # GET /checkout/<token>
     def edit
-      if checkout_started?
-        track_checkout_started
-
-        @order.accept_marketing = true # TODO: move this to store preferences
-        @order.signup_for_an_account = true # TODO: move this to store preferences
-      end
-
       track_checkout_step_viewed
     end
 
@@ -152,14 +145,6 @@ module Spree
 
     private
 
-    def store_user_location
-      if try_spree_current_user
-        store_location
-      else
-        store_location(spree.cart_path)
-      end
-    end
-
     # rather then using cookies like in old Spree we're going to fetch the order based on the
     # token passed in the parameters, this allows us to share carts, send payment links, etc
     def load_order
@@ -188,10 +173,10 @@ module Spree
           redirect_to_cart
         elsif try_spree_current_user.nil? && !@order.completed?
           if params[:guest] && current_store.prefers_guest_checkout?
-            @order = current_store
-                       .orders
-                       .create!(current_order_params.except(:token, :user_id))
-                       .tap do |order|
+            @order = current_store.
+                       orders.
+                       create!(current_order_params.except(:token, :user_id)).
+                       tap do |order|
               order.merge!(@order, discard_merged: false)
               order.disassociate_user!
             end
@@ -205,6 +190,8 @@ module Spree
             redirect_to spree_login_path
           end
         end
+      elsif !current_store.prefers_guest_checkout?
+        require_user(redirect_path: spree_signup_path)
       end
 
       # completed orders shouldn't be updated anymore
@@ -241,12 +228,19 @@ module Spree
         @order.checkout_steps.first
       elsif insufficient_payment?
         'payment'
-      elsif @order.state == 'cart'
-        'address'
-      elsif @order.digital? && @order.delivery?
-        'address'
+      elsif @order.state == 'cart' || (!@order.requires_ship_address? && @order.delivery?)
+        @order.checkout_steps.first
       else
         @order.state
+      end
+    end
+
+    def check_if_checkout_started
+      if checkout_started?
+        track_checkout_started
+
+        @order.accept_marketing = true # TODO: move this to store preferences
+        @order.signup_for_an_account = true # TODO: move this to store preferences
       end
     end
 
@@ -262,7 +256,7 @@ module Spree
     end
 
     def should_restart_checkout?
-      (@order.quick_checkout? || @order.ship_address.nil?) && (@order.delivery? || @order.payment?)
+      (@order.quick_checkout? || (@order.requires_ship_address? && @order.ship_address.nil?)) && (@order.delivery? || @order.payment?)
     end
 
     def restart_checkout
@@ -315,11 +309,13 @@ module Spree
 
     def before_address
       if try_spree_current_user.present?
-        @order.ship_address ||= try_spree_current_user.ship_address
+        @order.ship_address ||= try_spree_current_user.ship_address || try_spree_current_user.bill_address if @order.requires_ship_address?
         @order.bill_address ||= try_spree_current_user.bill_address
       end
       # for guest users or users without addresses, we need to build an empty one here
-      @order.ship_address ||= Address.new(country: current_store.default_country, user: try_spree_current_user)
+      if @order.requires_ship_address?
+        @order.ship_address ||= Address.new(country: current_store.default_country, user: try_spree_current_user)
+      end
     end
 
     def before_delivery
@@ -330,7 +326,11 @@ module Spree
     end
 
     def before_payment
-      @order.bill_address ||= @order.ship_address.clone
+      @order.bill_address ||= if @order.requires_ship_address?
+                                @order.ship_address.clone
+                              else
+                                Spree::Address.new(country: current_store.default_country, user: try_spree_current_user)
+                              end
 
       if @order.checkout_steps.include? 'delivery'
         packages = @order.shipments.map(&:to_package)
@@ -379,10 +379,9 @@ module Spree
     end
 
     def remove_expired_gift_card
-      return unless defined?(Spree::GiftCards::Remove)
       return unless @order.gift_card.present? && @order.gift_card.expired?
 
-      Spree::GiftCards::Remove.call(order: @order)
+      Spree::Dependencies.gift_card_remove_service.constantize.call(order: @order)
     end
   end
 end

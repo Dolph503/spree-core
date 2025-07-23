@@ -6,9 +6,6 @@ module Spree
     if defined?(Spree::Webhooks::HasWebhooks)
       include Spree::Webhooks::HasWebhooks
     end
-    if defined?(Spree::Security::Addresses)
-      include Spree::Security::Addresses
-    end
 
     serialize :preferences, type: Hash, coder: YAML, default: {}
 
@@ -31,6 +28,10 @@ module Spree
     ADDRESS_FIELDS = %w(firstname lastname company address1 address2 city state zipcode country phone)
     EXCLUDED_KEYS_FOR_COMPARISON = %w(id updated_at created_at deleted_at label user_id public_metadata private_metadata)
     FIELDS_TO_NORMALIZE = %w(firstname lastname phone alternative_phone company address1 address2 city zipcode)
+
+    if defined?(Spree::Security::Addresses)
+      include Spree::Security::Addresses
+    end
 
     scope :not_deleted, -> { where(deleted_at: nil) }
 
@@ -64,12 +65,19 @@ module Spree
     end
 
     validate :state_validate, :postal_code_validate
+    validate :address_validators, on: [:create, :update]
 
     validates :label, uniqueness: { conditions: -> { where(deleted_at: nil) },
                                     scope: :user_id,
                                     case_sensitive: false,
                                     allow_blank: true,
                                     allow_nil: true }
+
+    def address_validators
+      Rails.application.config.spree.validators.addresses.each do |validator|
+        validates_with validator
+      end
+    end
 
     delegate :name, :iso3, :iso, :iso_name, to: :country, prefix: true
     delegate :abbr, to: :state, prefix: true, allow_nil: true
@@ -189,7 +197,7 @@ module Spree
     end
 
     def show_company_address_field?
-      false
+      Spree::Store.current.prefers_company_field_enabled?
     end
 
     def editable?
